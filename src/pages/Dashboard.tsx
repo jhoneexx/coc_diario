@@ -27,6 +27,8 @@ interface Meta {
   mtbf_meta: number;
   disponibilidade_meta: number;
   peso_percentual: number;
+  mttr_permite_superacao: boolean;
+  mtbf_permite_superacao: boolean;
 }
 
 interface Incidente {
@@ -228,18 +230,35 @@ const Dashboard: React.FC = () => {
   const calcularPercentualMTTR = () => {
     const meta = getMetaAmbiente();
     if (!meta || !meta.mttr_meta || stats.mttr === 0) return 100;
-    return Math.min(100, 100 * (meta.mttr_meta / stats.mttr));
+    
+    const percentual = 100 * (meta.mttr_meta / stats.mttr);
+    
+    // Se não permite superação, limitar a 100%
+    if (!meta.mttr_permite_superacao) {
+      return Math.min(100, percentual);
+    }
+    
+    return percentual;
   };
 
   const calcularPercentualMTBF = () => {
     const meta = getMetaAmbiente();
     if (!meta || !meta.mtbf_meta || stats.mtbf === 0) return 0;
-    return Math.min(100, 100 * (stats.mtbf / meta.mtbf_meta));
+    
+    const percentual = 100 * (stats.mtbf / meta.mtbf_meta);
+    
+    // Se não permite superação, limitar a 100%
+    if (!meta.mtbf_permite_superacao) {
+      return Math.min(100, percentual);
+    }
+    
+    return percentual;
   };
 
   const calcularPercentualDisponibilidade = () => {
     const meta = getMetaAmbiente();
     if (!meta || !meta.disponibilidade_meta || stats.disponibilidadeMedia === 0) return 0;
+    // Disponibilidade sempre é limitada a 100%
     return Math.min(100, 100 * (stats.disponibilidadeMedia / meta.disponibilidade_meta));
   };
 
@@ -350,6 +369,7 @@ const Dashboard: React.FC = () => {
               descricao={stats.mttr <= (getMetaAmbiente()?.mttr_meta || 0) ? "Dentro da meta" : "Acima da meta"}
               pesoPercentual={getMetaAmbiente()?.peso_percentual}
               menorMelhor={true}
+              permiteSuperacao={getMetaAmbiente()?.mttr_permite_superacao}
               icon={<Clock className="h-5 w-5 text-blue-500" />}
             />
             
@@ -362,6 +382,7 @@ const Dashboard: React.FC = () => {
               descricao={stats.mtbf >= (getMetaAmbiente()?.mtbf_meta || 0) ? "Dentro da meta" : "Abaixo da meta"}
               pesoPercentual={getMetaAmbiente()?.peso_percentual}
               menorMelhor={false}
+              permiteSuperacao={getMetaAmbiente()?.mtbf_permite_superacao}
               icon={<Calendar className="h-5 w-5 text-green-500" />}
             />
             
@@ -374,6 +395,7 @@ const Dashboard: React.FC = () => {
               descricao={stats.disponibilidadeMedia >= (getMetaAmbiente()?.disponibilidade_meta || 0) ? "Dentro da meta" : "Abaixo da meta"}
               pesoPercentual={getMetaAmbiente()?.peso_percentual}
               menorMelhor={false}
+              permiteSuperacao={false} // Disponibilidade sempre limitada a 100%
               icon={<CheckCircle className="h-5 w-5 text-purple-500" />}
             />
           </div>
@@ -387,7 +409,12 @@ const Dashboard: React.FC = () => {
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm font-medium">MTTR</span>
-                  <span className="text-sm">{calcularPercentualMTTR().toFixed(1)}% atingido</span>
+                  <span className="text-sm">
+                    {calcularPercentualMTTR() > 999 ? '999+' : calcularPercentualMTTR().toFixed(1)}% atingido
+                    {getMetaAmbiente()?.mttr_permite_superacao && calcularPercentualMTTR() > 100 && (
+                      <span className="ml-2 text-xs text-green-600">(Superado)</span>
+                    )}
+                  </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div 
@@ -401,7 +428,12 @@ const Dashboard: React.FC = () => {
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm font-medium">MTBF</span>
-                  <span className="text-sm">{calcularPercentualMTBF().toFixed(1)}% atingido</span>
+                  <span className="text-sm">
+                    {calcularPercentualMTBF() > 999 ? '999+' : calcularPercentualMTBF().toFixed(1)}% atingido
+                    {getMetaAmbiente()?.mtbf_permite_superacao && calcularPercentualMTBF() > 100 && (
+                      <span className="ml-2 text-xs text-green-600">(Superado)</span>
+                    )}
+                  </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div 
@@ -576,7 +608,7 @@ const Dashboard: React.FC = () => {
         <div className="bg-white rounded-lg shadow p-4">
           <IncidentTypeQuantityChart 
             incidentes={incidentes}
-            titulo="Quantidade por Tipo de Incidente"
+            titulo="Quantidade por Tipo de Incidente" 
           />
         </div>
         

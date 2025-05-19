@@ -9,6 +9,7 @@ interface MetaAtingimentoCardProps {
   descricao?: string;
   pesoPercentual?: number;
   menorMelhor?: boolean; // Para métricas como MTTR, valores menores são melhores
+  permiteSuperacao?: boolean; // Indica se o percentual pode ultrapassar 100%
   icon?: React.ReactNode;
 }
 
@@ -20,20 +21,34 @@ const MetaAtingimentoCard: React.FC<MetaAtingimentoCardProps> = ({
   descricao,
   pesoPercentual,
   menorMelhor = false,
+  permiteSuperacao = true,
   icon
 }) => {
   // Calcular percentual de atingimento
   const percentualAtingimento = useMemo(() => {
     if (!meta || meta === 0) return 100;
 
+    let percentual;
     if (menorMelhor) {
       // Para métricas onde valores menores são melhores (ex: MTTR)
-      return Math.min(100, (meta / Math.max(0.001, valor)) * 100);
+      percentual = (meta / Math.max(0.001, valor)) * 100;
     } else {
       // Para métricas onde valores maiores são melhores (ex: MTBF, Disponibilidade)
-      return Math.min(100, (valor / meta) * 100);
+      percentual = (valor / meta) * 100;
     }
-  }, [valor, meta, menorMelhor]);
+    
+    // Se não permitir superação, limitar a 100%
+    if (!permiteSuperacao) {
+      return Math.min(100, percentual);
+    }
+    
+    // Caso especial: disponibilidade nunca deve ultrapassar 100%
+    if (unidade === '%') {
+      return Math.min(100, percentual);
+    }
+    
+    return percentual;
+  }, [valor, meta, menorMelhor, permiteSuperacao, unidade]);
 
   // Determinar status baseado no percentual de atingimento
   const status = useMemo(() => {
@@ -95,7 +110,9 @@ const MetaAtingimentoCard: React.FC<MetaAtingimentoCardProps> = ({
         <>
           <div className="mt-4 flex justify-between items-center">
             <span className="text-xs text-gray-500">Meta: {meta.toFixed(2)} {unidade}</span>
-            <span className="text-xs text-gray-500">Atingimento: {percentualAtingimento.toFixed(0)}%</span>
+            <span className="text-xs text-gray-500">
+              Atingimento: {percentualAtingimento > 999 ? '999+' : percentualAtingimento.toFixed(0)}%
+            </span>
           </div>
           
           <div className="mt-1 w-full bg-gray-200 rounded-full h-2">

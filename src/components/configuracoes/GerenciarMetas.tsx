@@ -32,7 +32,9 @@ const GerenciarMetas: React.FC = () => {
     mttr_meta: 4,
     mtbf_meta: 168, // 7 dias em horas
     disponibilidade_meta: 99.9,
-    peso_percentual: 100
+    peso_percentual: 100,
+    mttr_permite_superacao: true,
+    mtbf_permite_superacao: true
   });
 
   // Estado para controlar a exibição da visualização de realização de metas
@@ -111,12 +113,14 @@ const GerenciarMetas: React.FC = () => {
   
   // Handler para mudanças nos campos do formulário
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     
     if (name === 'ambiente_id') {
       setFormData(prev => ({ ...prev, [name]: parseInt(value, 10) || 0 }));
     } else if (['mttr_meta', 'mtbf_meta', 'disponibilidade_meta', 'peso_percentual'].includes(name)) {
       setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+    } else if (type === 'checkbox') {
+      setFormData(prev => ({ ...prev, [name]: checked }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -130,7 +134,9 @@ const GerenciarMetas: React.FC = () => {
       mttr_meta: meta.mttr_meta,
       mtbf_meta: meta.mtbf_meta,
       disponibilidade_meta: meta.disponibilidade_meta,
-      peso_percentual: meta.peso_percentual
+      peso_percentual: meta.peso_percentual,
+      mttr_permite_superacao: meta.mttr_permite_superacao,
+      mtbf_permite_superacao: meta.mtbf_permite_superacao
     });
   };
   
@@ -143,7 +149,9 @@ const GerenciarMetas: React.FC = () => {
       mttr_meta: 4,
       mtbf_meta: 168,
       disponibilidade_meta: 99.9,
-      peso_percentual: 100
+      peso_percentual: 100,
+      mttr_permite_superacao: true,
+      mtbf_permite_superacao: true
     });
   };
   
@@ -155,7 +163,9 @@ const GerenciarMetas: React.FC = () => {
       mttr_meta: 4,
       mtbf_meta: 168,
       disponibilidade_meta: 99.9,
-      peso_percentual: percentualDisponivel
+      peso_percentual: percentualDisponivel,
+      mttr_permite_superacao: true,
+      mtbf_permite_superacao: true
     });
   };
   
@@ -200,14 +210,25 @@ const GerenciarMetas: React.FC = () => {
         
         // Calcular percentual de atingimento (considerando que valores menores são melhores para MTTR,
         // e valores maiores são melhores para MTBF e disponibilidade)
-        const mttrPercentualAtingido = meta.mttr_meta > 0 
-          ? Math.min(100, 100 * (meta.mttr_meta / Math.max(0.01, mttrReal)))
+        let mttrPercentualAtingido = meta.mttr_meta > 0 
+          ? 100 * (meta.mttr_meta / Math.max(0.01, mttrReal))
           : 0;
+        
+        // Se permitir superação, não limitar a 100%
+        if (!meta.mttr_permite_superacao) {
+          mttrPercentualAtingido = Math.min(100, mttrPercentualAtingido);
+        }
           
-        const mtbfPercentualAtingido = mtbfReal > 0
-          ? Math.min(100, 100 * (mtbfReal / Math.max(0.01, meta.mtbf_meta)))
+        let mtbfPercentualAtingido = mtbfReal > 0
+          ? 100 * (mtbfReal / Math.max(0.01, meta.mtbf_meta))
           : 0;
+        
+        // Se permitir superação, não limitar a 100%
+        if (!meta.mtbf_permite_superacao) {
+          mtbfPercentualAtingido = Math.min(100, mtbfPercentualAtingido);
+        }
           
+        // Disponibilidade sempre limitada a 100%
         const dispPercentualAtingido = meta.disponibilidade_meta > 0
           ? Math.min(100, 100 * (dispReal / meta.disponibilidade_meta))
           : 0;
@@ -650,7 +671,13 @@ const GerenciarMetas: React.FC = () => {
                 MTTR Meta (horas)
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Superação MTTR
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 MTBF Meta (horas)
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Superação MTBF
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 MTBF Meta (dias)
@@ -710,6 +737,15 @@ const GerenciarMetas: React.FC = () => {
                     className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                   />
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <input
+                    type="checkbox"
+                    name="mttr_permite_superacao"
+                    checked={formData.mttr_permite_superacao}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <input
                     type="number"
@@ -719,6 +755,15 @@ const GerenciarMetas: React.FC = () => {
                     min="1"
                     step="1"
                     className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  />
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <input
+                    type="checkbox"
+                    name="mtbf_permite_superacao"
+                    checked={formData.mtbf_permite_superacao}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                   />
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -757,13 +802,13 @@ const GerenciarMetas: React.FC = () => {
             {/* Lista de metas */}
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
                   Carregando metas...
                 </td>
               </tr>
             ) : metas.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
                   Nenhuma meta encontrada
                 </td>
               </tr>
@@ -803,6 +848,15 @@ const GerenciarMetas: React.FC = () => {
                         className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                       />
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <input
+                        type="checkbox"
+                        name="mttr_permite_superacao"
+                        checked={formData.mttr_permite_superacao}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
                         type="number"
@@ -812,6 +866,15 @@ const GerenciarMetas: React.FC = () => {
                         min="1"
                         step="1"
                         className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <input
+                        type="checkbox"
+                        name="mtbf_permite_superacao"
+                        checked={formData.mtbf_permite_superacao}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -864,8 +927,26 @@ const GerenciarMetas: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {meta.mttr_meta.toFixed(2)}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        meta.mttr_permite_superacao 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {meta.mttr_permite_superacao ? 'Sim' : 'Não'}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {meta.mtbf_meta.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        meta.mtbf_permite_superacao 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {meta.mtbf_permite_superacao ? 'Sim' : 'Não'}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {(meta.mtbf_meta / 24).toFixed(2)}

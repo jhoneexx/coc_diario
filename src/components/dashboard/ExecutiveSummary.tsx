@@ -15,6 +15,8 @@ interface MetaStats {
   mtbf_meta?: number;
   disponibilidade_meta?: number;
   peso_percentual?: number;
+  mttr_permite_superacao?: boolean;
+  mtbf_permite_superacao?: boolean;
 }
 
 interface ExecutiveSummaryProps {
@@ -56,6 +58,39 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({
     if (!metas?.disponibilidade_meta) return 'neutro';
     return stats.disponibilidadeMedia >= metas.disponibilidade_meta ? 'positivo' : 'negativo';
   }, [stats.disponibilidadeMedia, metas?.disponibilidade_meta]);
+  
+  // Calcular percentuais de atingimento
+  const calcularPercentualMTTR = () => {
+    if (!metas?.mttr_meta || stats.mttr === 0) return 100;
+    
+    const percentual = 100 * (metas.mttr_meta / stats.mttr);
+    
+    // Se não permite superação, limitar a 100%
+    if (!metas.mttr_permite_superacao) {
+      return Math.min(100, percentual);
+    }
+    
+    return percentual;
+  };
+
+  const calcularPercentualMTBF = () => {
+    if (!metas?.mtbf_meta || stats.mtbf === 0) return 0;
+    
+    const percentual = 100 * (stats.mtbf / metas.mtbf_meta);
+    
+    // Se não permite superação, limitar a 100%
+    if (!metas.mtbf_permite_superacao) {
+      return Math.min(100, percentual);
+    }
+    
+    return percentual;
+  };
+
+  const calcularPercentualDisponibilidade = () => {
+    if (!metas?.disponibilidade_meta || stats.disponibilidadeMedia === 0) return 0;
+    // Disponibilidade sempre é limitada a 100%
+    return Math.min(100, 100 * (stats.disponibilidadeMedia / metas.disponibilidade_meta));
+  };
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -129,6 +164,9 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({
                 mttrStatus === 'negativo' ? 'text-red-600' : 'text-gray-800'
               }`}>
                 {stats.mttr.toFixed(2)}h {metas?.mttr_meta ? `/ Meta: ${metas.mttr_meta.toFixed(2)}h` : ''}
+                {metas?.mttr_permite_superacao && calcularPercentualMTTR() > 100 && mttrStatus === 'positivo' && (
+                  <span className="ml-1 text-xs text-green-600">({calcularPercentualMTTR().toFixed(0)}%)</span>
+                )}
               </span>
             </div>
             
@@ -139,6 +177,9 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({
                 mtbfStatus === 'negativo' ? 'text-red-600' : 'text-gray-800'
               }`}>
                 {(stats.mtbf / 24).toFixed(2)} dias {metas?.mtbf_meta ? `/ Meta: ${(metas.mtbf_meta / 24).toFixed(2)} dias` : ''}
+                {metas?.mtbf_permite_superacao && calcularPercentualMTBF() > 100 && mtbfStatus === 'positivo' && (
+                  <span className="ml-1 text-xs text-green-600">({calcularPercentualMTBF().toFixed(0)}%)</span>
+                )}
               </span>
             </div>
           </div>
@@ -156,6 +197,9 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({
                 dispStatus === 'negativo' ? 'text-red-600' : 'text-gray-800'
               }`}>
                 {stats.disponibilidadeMedia.toFixed(3)}% {metas?.disponibilidade_meta ? `/ Meta: ${metas.disponibilidade_meta.toFixed(3)}%` : ''}
+                {calcularPercentualDisponibilidade() > 100 && dispStatus === 'positivo' && (
+                  <span className="ml-1 text-xs text-green-600">({calcularPercentualDisponibilidade().toFixed(0)}%)</span>
+                )}
               </span>
             </div>
             

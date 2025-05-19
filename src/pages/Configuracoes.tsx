@@ -70,6 +70,8 @@ export interface Meta {
   mtbf_meta: number;
   disponibilidade_meta: number;
   peso_percentual: number;
+  mttr_permite_superacao: boolean;
+  mtbf_permite_superacao: boolean;
   criado_em: string;
   atualizado_em: string;
 }
