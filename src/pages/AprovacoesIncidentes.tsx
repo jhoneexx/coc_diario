@@ -125,12 +125,6 @@ const AprovacoesIncidentes: React.FC = () => {
           query = query.eq('status', filtroStatus);
         }
         
-        // Se for gestor (não admin), mostrar apenas solicitações de operadores
-        if (isGestor() && !isAdmin() && filtroStatus === 'pendente') {
-          // Precisamos acessar o perfil do solicitante via dados_antes
-          query = query.eq('dados_antes->perfil_solicitante', 'operador');
-        }
-        
         // Adicionar filtro de ambiente se especificado
         if (filtroAmbiente) {
           // Primeiro, buscamos os IDs dos incidentes do ambiente
@@ -157,13 +151,23 @@ const AprovacoesIncidentes: React.FC = () => {
         }
         
         if (data) {
+          let filteredData = data;
+          
+          // Filtrar dados do lado do cliente se for gestor
+          if (isGestor() && !isAdmin() && filtroStatus === 'pendente') {
+            filteredData = data.filter(item => 
+              item.dados_antes && 
+              item.dados_antes.perfil_solicitante === 'operador'
+            );
+          }
+          
           // Armazenar os IDs dos aprovadores para buscar seus detalhes
-          const aprovadorIds = data
+          const aprovadorIds = filteredData
             .filter(item => item.aprovador_id !== null)
             .map(item => item.aprovador_id);
           
           // Inicialmente configuramos os aprovadores como null
-          const aprovacoesWithoutAprovador = data.map(item => ({
+          const aprovacoesWithoutAprovador = filteredData.map(item => ({
             ...item,
             usuario_aprovador: null
           })) as AprovacaoIncidente[];
@@ -171,7 +175,7 @@ const AprovacoesIncidentes: React.FC = () => {
           setAprovacoes(aprovacoesWithoutAprovador);
           
           // Atualizar contador de pendências
-          const pendentes = data.filter(item => 
+          const pendentes = filteredData.filter(item => 
             item.status === 'pendente' && 
             (isAdmin() || 
               (isGestor() && item.dados_antes?.perfil_solicitante === 'operador')

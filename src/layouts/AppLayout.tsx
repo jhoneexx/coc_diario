@@ -52,20 +52,25 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     
     const checkPendingApprovals = async () => {
       try {
-        let query = supabase
+        // Fetch all pending approvals first
+        const { data, error } = await supabase
           .from('aprovacoes_incidentes')
-          .select('count', { count: 'exact', head: true })
+          .select('*, dados_antes')
           .eq('status', 'pendente');
         
-        // Gestor só vê aprovações de operadores
-        if (isGestor() && !isAdmin()) {
-          query = query.eq('dados_antes->perfil_solicitante', 'operador');
-        }
-        
-        const { count, error } = await query;
         if (error) throw error;
         
-        setPendingCount(count || 0);
+        let filteredData = data || [];
+        
+        // Filter data on client side for gestores
+        if (isGestor() && !isAdmin()) {
+          filteredData = filteredData.filter(item => 
+            item.dados_antes && 
+            item.dados_antes.perfil_solicitante === 'operador'
+          );
+        }
+        
+        setPendingCount(filteredData.length);
       } catch (error) {
         console.error('Erro ao verificar aprovações pendentes:', error);
       }
