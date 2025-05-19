@@ -12,6 +12,12 @@ interface Ambiente {
   nome: string;
 }
 
+interface Usuario {
+  id: number;
+  nome: string;
+  perfil: string;
+}
+
 interface AprovacaoIncidente {
   id: number;
   incidente_id: number;
@@ -109,8 +115,7 @@ const AprovacoesIncidentes: React.FC = () => {
               segmento:segmentos(nome),
               criticidade:criticidades(nome, cor)
             ),
-            usuario_solicitante:usuarios!solicitado_por(id, nome, perfil),
-            usuario_aprovador:usuarios(id, nome, perfil)
+            usuario_solicitante:usuarios!solicitado_por(id, nome, perfil)
           `)
           .gte('solicitado_em', filtroPeriodo.inicio)
           .lte('solicitado_em', `${filtroPeriodo.fim}T23:59:59`);
@@ -140,18 +145,56 @@ const AprovacoesIncidentes: React.FC = () => {
           }
         }
         
-        // Removido o filtro por dados_antes.perfil_solicitante que estava causando o erro
-        
         const { data, error } = await query.order('solicitado_em', { ascending: false });
         
         if (error) throw error;
         
         if (data) {
-          setAprovacoes(data as AprovacaoIncidente[]);
+          // Armazenar os IDs dos aprovadores para buscar seus detalhes
+          const aprovadorIds = data
+            .filter(item => item.aprovador_id !== null)
+            .map(item => item.aprovador_id);
+          
+          // Inicialmente configuramos os aprovadores como null
+          const aprovacoesWithoutAprovador = data.map(item => ({
+            ...item,
+            usuario_aprovador: null
+          })) as AprovacaoIncidente[];
+          
+          setAprovacoes(aprovacoesWithoutAprovador);
           
           // Atualizar contador de pendências
           const pendentes = data.filter(item => item.status === 'pendente');
           setPendingCount(pendentes.length);
+          
+          // Buscar informações dos aprovadores em uma consulta separada
+          if (aprovadorIds.length > 0) {
+            const { data: aprovadoresData, error: aprovadoresError } = await supabase
+              .from('usuarios')
+              .select('id, nome, perfil')
+              .in('id', aprovadorIds);
+            
+            if (aprovadoresError) {
+              console.error('Erro ao buscar informações dos aprovadores:', aprovadoresError);
+            } else if (aprovadoresData) {
+              // Mapear aprovadores e atualizar o estado
+              const aprovadoresMap = new Map<number, Usuario>();
+              aprovadoresData.forEach(aprovador => {
+                aprovadoresMap.set(aprovador.id, aprovador);
+              });
+              
+              // Atualizar aprovações com informações dos aprovadores
+              setAprovacoes(prev => prev.map(ap => {
+                if (ap.aprovador_id && aprovadoresMap.has(ap.aprovador_id)) {
+                  return {
+                    ...ap,
+                    usuario_aprovador: aprovadoresMap.get(ap.aprovador_id) || null
+                  };
+                }
+                return ap;
+              }));
+            }
+          }
         }
       } catch (error) {
         console.error('Erro ao carregar aprovações:', error);
