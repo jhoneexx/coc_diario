@@ -53,6 +53,7 @@ const AprovacoesIncidentes: React.FC = () => {
   const [ambientes, setAmbientes] = useState<Ambiente[]>([]);
   const [modalAprovacao, setModalAprovacao] = useState<AprovacaoIncidente | null>(null);
   const [motivoRejeicao, setMotivoRejeicao] = useState('');
+  const [pendingCount, setPendingCount] = useState(0);
   
   // Filtros
   const [filtroStatus, setFiltroStatus] = useState<string>('pendente');
@@ -98,6 +99,8 @@ const AprovacoesIncidentes: React.FC = () => {
           .from('aprovacoes_incidentes')
           .select(`
             *,
+            dados_antes,
+            dados_depois,
             incidente:incidentes(
               id,
               inicio,
@@ -137,11 +140,7 @@ const AprovacoesIncidentes: React.FC = () => {
           }
         }
         
-        // Mostrar apenas o que o usuário pode aprovar com base em seu perfil
-        if (!isAdmin() && isGestor()) {
-          // Gestores só podem ver aprovações de operadores
-          query = query.eq('dados_antes.perfil_solicitante', 'operador');
-        }
+        // Removido o filtro por dados_antes.perfil_solicitante que estava causando o erro
         
         const { data, error } = await query.order('solicitado_em', { ascending: false });
         
@@ -149,6 +148,10 @@ const AprovacoesIncidentes: React.FC = () => {
         
         if (data) {
           setAprovacoes(data as AprovacaoIncidente[]);
+          
+          // Atualizar contador de pendências
+          const pendentes = data.filter(item => item.status === 'pendente');
+          setPendingCount(pendentes.length);
         }
       } catch (error) {
         console.error('Erro ao carregar aprovações:', error);
@@ -255,6 +258,9 @@ const AprovacoesIncidentes: React.FC = () => {
           : ap
       ));
       
+      // Atualizar contador de pendências
+      setPendingCount(prev => prev - 1);
+      
       // Fechar modal
       setModalAprovacao(null);
     } catch (error) {
@@ -305,6 +311,9 @@ const AprovacoesIncidentes: React.FC = () => {
             }
           : ap
       ));
+      
+      // Atualizar contador de pendências
+      setPendingCount(prev => prev - 1);
       
       toast.success('Solicitação rejeitada com sucesso');
       
@@ -428,7 +437,7 @@ const AprovacoesIncidentes: React.FC = () => {
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
           <h2 className="text-lg font-medium text-gray-900">Solicitações de Aprovação</h2>
           <p className="text-sm text-gray-500 mt-1">
-            {aprovacoes.filter(a => a.status === 'pendente').length} solicitações pendentes
+            {pendingCount} solicitações pendentes
           </p>
         </div>
         
@@ -708,6 +717,13 @@ const AprovacoesIncidentes: React.FC = () => {
               
               {modalAprovacao.status === 'pendente' && podeAprovar(modalAprovacao) && (
                 <>
+                  <div className="mr-2 flex items-center text-yellow-600 font-medium text-sm">
+                    {pendingCount > 0 && (
+                      <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                        {pendingCount} pendente{pendingCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
                   <button
                     onClick={handleRejeitar}
                     disabled={!motivoRejeicao.trim()}
