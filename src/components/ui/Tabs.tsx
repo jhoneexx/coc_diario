@@ -66,7 +66,7 @@ const TabsContext = React.createContext<{
   onValueChange: () => {}
 });
 
-export const useTabsContext = () => {
+const useTabsContext = () => {
   const context = React.useContext(TabsContext);
   if (!context) {
     throw new Error('Tabs components must be used within a Tabs component');

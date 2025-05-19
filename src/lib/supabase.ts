@@ -9,6 +9,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Variáveis de ambiente do Supabase não encontradas. Por favor, conecte seu projeto ao Supabase.');
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
 export default supabase;
