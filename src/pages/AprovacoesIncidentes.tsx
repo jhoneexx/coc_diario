@@ -256,9 +256,25 @@ const AprovacoesIncidentes: React.FC = () => {
       
       if (modalAprovacao.tipo_operacao === 'edicao') {
         // Aprovar edição - Atualizar o incidente com os dados novos
+        // Garantir que estamos enviando apenas colunas válidas para a tabela incidentes
+        const validColumns = [
+          'inicio', 'fim', 'duracao_minutos', 'tipo_id', 'ambiente_id', 
+          'segmento_id', 'criticidade_id', 'descricao', 'acoes_tomadas',
+          'criado_em', 'atualizado_em', 'criado_por', 'atualizado_por'
+        ];
+        
+        // Filtrar apenas as colunas válidas dos dados_depois
+        const validData = Object.keys(modalAprovacao.dados_depois)
+          .filter(key => validColumns.includes(key))
+          .reduce((obj, key) => {
+            obj[key] = modalAprovacao.dados_depois[key];
+            return obj;
+          }, {} as Record<string, any>);
+        
+        // Atualizar o incidente com os dados filtrados
         const { error: updateError } = await supabase
           .from('incidentes')
-          .update(modalAprovacao.dados_depois)
+          .update(validData)
           .eq('id', modalAprovacao.incidente_id);
         
         if (updateError) throw updateError;
