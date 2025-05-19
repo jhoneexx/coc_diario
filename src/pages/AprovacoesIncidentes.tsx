@@ -125,8 +125,13 @@ const AprovacoesIncidentes: React.FC = () => {
           query = query.eq('status', filtroStatus);
         }
         
+        // Se for gestor (não admin), mostrar apenas solicitações de operadores
+        if (isGestor() && !isAdmin() && filtroStatus === 'pendente') {
+          // Precisamos acessar o perfil do solicitante via dados_antes
+          query = query.eq('dados_antes->perfil_solicitante', 'operador');
+        }
+        
         // Adicionar filtro de ambiente se especificado
-        // Note: isso é um pouco mais complexo pois precisamos filtrar em uma relação aninhada
         if (filtroAmbiente) {
           // Primeiro, buscamos os IDs dos incidentes do ambiente
           const { data: incidentesDoAmbiente } = await supabase
@@ -147,7 +152,9 @@ const AprovacoesIncidentes: React.FC = () => {
         
         const { data, error } = await query.order('solicitado_em', { ascending: false });
         
-        if (error) throw error;
+        if (error) {
+          throw new Error(`Erro ao carregar aprovações: ${error.message}`);
+        }
         
         if (data) {
           // Armazenar os IDs dos aprovadores para buscar seus detalhes
@@ -164,7 +171,12 @@ const AprovacoesIncidentes: React.FC = () => {
           setAprovacoes(aprovacoesWithoutAprovador);
           
           // Atualizar contador de pendências
-          const pendentes = data.filter(item => item.status === 'pendente');
+          const pendentes = data.filter(item => 
+            item.status === 'pendente' && 
+            (isAdmin() || 
+              (isGestor() && item.dados_antes?.perfil_solicitante === 'operador')
+            )
+          );
           setPendingCount(pendentes.length);
           
           // Buscar informações dos aprovadores em uma consulta separada
@@ -198,7 +210,7 @@ const AprovacoesIncidentes: React.FC = () => {
         }
       } catch (error) {
         console.error('Erro ao carregar aprovações:', error);
-        toast.error('Erro ao carregar solicitações de aprovação');
+        toast.error(`Erro ao carregar solicitações de aprovação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       } finally {
         setLoading(false);
       }
@@ -224,7 +236,7 @@ const AprovacoesIncidentes: React.FC = () => {
     if (isAdmin()) return true;
     
     // Gestor só pode aprovar solicitações de operadores
-    if (isGestor() && aprovacao.usuario_solicitante.perfil === 'operador') {
+    if (isGestor() && aprovacao.dados_antes?.perfil_solicitante === 'operador') {
       return true;
     }
     
@@ -295,7 +307,7 @@ const AprovacoesIncidentes: React.FC = () => {
               usuario_aprovador: {
                 id: currentUser.id,
                 nome: currentUser.nome,
-                perfil: currentUser.role
+                perfil: currentUser.perfil
               }
             }
           : ap
@@ -349,7 +361,7 @@ const AprovacoesIncidentes: React.FC = () => {
               usuario_aprovador: {
                 id: currentUser.id,
                 nome: currentUser.nome,
-                perfil: currentUser.role
+                perfil: currentUser.perfil
               }
             }
           : ap

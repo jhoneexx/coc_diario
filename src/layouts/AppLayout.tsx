@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -10,9 +10,11 @@ import {
   X,
   ChevronDown,
   User,
-  CheckSquare
+  CheckSquare,
+  Bell
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import supabase from '../lib/supabase';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -24,6 +26,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   // Função para verificar se uma rota está ativa
   const isActive = (path: string) => location.pathname === path;
@@ -39,6 +42,43 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   
   // Toggle para o menu de perfil
   const toggleProfileMenu = () => setProfileMenuOpen(!profileMenuOpen);
+  
+  // Verificar pendências de aprovação
+  useEffect(() => {
+    // Apenas verificar se o usuário for gestor ou admin
+    if (!currentUser || (!isGestor() && !isAdmin())) {
+      return;
+    }
+    
+    const checkPendingApprovals = async () => {
+      try {
+        let query = supabase
+          .from('aprovacoes_incidentes')
+          .select('count', { count: 'exact', head: true })
+          .eq('status', 'pendente');
+        
+        // Gestor só vê aprovações de operadores
+        if (isGestor() && !isAdmin()) {
+          query = query.eq('dados_antes->perfil_solicitante', 'operador');
+        }
+        
+        const { count, error } = await query;
+        if (error) throw error;
+        
+        setPendingCount(count || 0);
+      } catch (error) {
+        console.error('Erro ao verificar aprovações pendentes:', error);
+      }
+    };
+    
+    // Verificar imediatamente
+    checkPendingApprovals();
+    
+    // E depois a cada minuto
+    const interval = setInterval(checkPendingApprovals, 60000);
+    
+    return () => clearInterval(interval);
+  }, [currentUser, isGestor, isAdmin]);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -96,7 +136,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 }`}
               >
                 <CheckSquare className="mr-3 h-5 w-5" />
-                Aprovações
+                <div className="flex items-center">
+                  Aprovações
+                  {pendingCount > 0 && (
+                    <div className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">
+                      {pendingCount}
+                    </div>
+                  )}
+                </div>
               </button>
             )}
             
@@ -152,6 +199,21 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           >
             <Menu size={24} />
           </button>
+          
+          {/* Notificações */}
+          {(isAdmin() || isGestor()) && pendingCount > 0 && (
+            <div className="mr-4 md:mr-auto ml-4 md:ml-0">
+              <button 
+                onClick={() => navigate('/incidentes/aprovacoes')}
+                className="relative p-1 text-gray-600 hover:text-gray-900 focus:outline-none"
+              >
+                <Bell className="h-6 w-6" />
+                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
+                  {pendingCount}
+                </span>
+              </button>
+            </div>
+          )}
           
           {/* Profile Dropdown */}
           <div className="ml-auto relative">
