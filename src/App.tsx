@@ -16,6 +16,7 @@ import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
 import ClienteDashboard from './pages/ClienteDashboard';
 import NotFound from './pages/NotFound';
+import AprovacoesIncidentes from './pages/AprovacoesIncidentes';
 
 // Utilitários
 import { initTheme } from './utils/theme';
@@ -99,6 +100,14 @@ function App() {
         <AppLayout>
           <ProtectedRoute allowedRoles={['admin', 'operador', 'gestor']}>
             <EditarIncidente />
+          </ProtectedRoute>
+        </AppLayout>
+      } />
+      
+      <Route path="/incidentes/aprovacoes" element={
+        <AppLayout>
+          <ProtectedRoute allowedRoles={['admin', 'gestor']}>
+            <AprovacoesIncidentes />
           </ProtectedRoute>
         </AppLayout>
       } />

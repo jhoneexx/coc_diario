@@ -21,6 +21,7 @@ interface AuthContextType {
   isOperador: () => boolean;
   canManageSystem: () => boolean;
   canViewReports: () => boolean;
+  canApproveRequests: () => boolean;
 }
 
 // Contexto de Autenticação
@@ -154,6 +155,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Funções de verificação de permissões
   const canManageSystem = (): boolean => isAdmin();
   const canViewReports = (): boolean => isAdmin() || isGestor();
+  const canApproveRequests = (): boolean => isAdmin() || isGestor();
 
   const contextValue: AuthContextType = {
     currentUser,
@@ -164,7 +166,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isGestor,
     isOperador,
     canManageSystem,
-    canViewReports
+    canViewReports,
+    canApproveRequests
   };
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;

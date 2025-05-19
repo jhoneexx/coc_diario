@@ -9,7 +9,8 @@ import {
   Menu, 
   X,
   ChevronDown,
-  User
+  User,
+  CheckSquare
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -18,7 +19,7 @@ interface AppLayoutProps {
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const { currentUser, logout, isAdmin, canViewReports } = useAuth();
+  const { currentUser, logout, isAdmin, isGestor, canViewReports } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -76,7 +77,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             <button 
               onClick={() => navigate('/incidentes')}
               className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
-                isActive('/incidentes') || location.pathname.includes('/incidentes/')
+                isActive('/incidentes') || location.pathname.includes('/incidentes/') && !location.pathname.includes('/incidentes/aprovacoes')
                   ? 'bg-primary-50 text-primary-600' 
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
@@ -84,6 +85,20 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               <AlertCircle className="mr-3 h-5 w-5" />
               Incidentes
             </button>
+            
+            {(isAdmin() || isGestor()) && (
+              <button 
+                onClick={() => navigate('/incidentes/aprovacoes')}
+                className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+                  isActive('/incidentes/aprovacoes') 
+                    ? 'bg-primary-50 text-primary-600' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <CheckSquare className="mr-3 h-5 w-5" />
+                Aprovações
+              </button>
+            )}
             
             {canViewReports() && (
               <button 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, X, Clock, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, X, Clock, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import supabase from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,19 +35,24 @@ interface IncidenteData {
   fim: string | null;
   duracao_minutos: number | null;
   tipo_id: number;
+  tipo_nome?: string;
   ambiente_id: number;
+  ambiente_nome?: string;
   segmento_id: number;
+  segmento_nome?: string;
   criticidade_id: number;
+  criticidade_nome?: string;
   descricao: string;
   acoes_tomadas: string | null;
   criado_em: string;
   criado_por: string;
+  atualizado_por?: string | null;
 }
 
 const EditarIncidente: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin, isGestor } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [confirmarExclusao, setConfirmarExclusao] = useState(false);
@@ -63,9 +68,15 @@ const EditarIncidente: React.FC = () => {
   
   // Dados do formulário
   const [formData, setFormData] = useState<IncidenteData | null>(null);
+  const [originalData, setOriginalData] = useState<IncidenteData | null>(null);
   
   // Indica se o incidente já foi resolvido
   const [incidenteResolvido, setIncidenteResolvido] = useState(false);
+  
+  // Estado para mostrar avisos ou restrições
+  const [mesmoMesCriacao, setMesmoMesCriacao] = useState(true);
+  const [precisaAprovacao, setPrecisaAprovacao] = useState(false);
+  const [msgAviso, setMsgAviso] = useState('');
   
   // Carregar dados do incidente e dados para os selects
   useEffect(() => {
@@ -77,7 +88,13 @@ const EditarIncidente: React.FC = () => {
         // Carregar dados do incidente
         const { data: incidenteData, error } = await supabase
           .from('incidentes')
-          .select('*')
+          .select(`
+            *,
+            tipo:tipos_incidente(nome),
+            ambiente:ambientes(nome),
+            segmento:segmentos(nome),
+            criticidade:criticidades(nome, cor, is_downtime)
+          `)
           .eq('id', id)
           .single();
         
@@ -96,13 +113,47 @@ const EditarIncidente: React.FC = () => {
           ? new Date(incidenteData.fim).toISOString().slice(0, 16)
           : '';
         
-        setFormData({
+        // Preparar dados para o formulário
+        const incidenteFormatado: IncidenteData = {
           ...incidenteData,
           inicio: dataInicio,
-          fim: dataFim
-        });
+          fim: dataFim,
+          tipo_nome: incidenteData.tipo.nome,
+          ambiente_nome: incidenteData.ambiente.nome,
+          segmento_nome: incidenteData.segmento.nome,
+          criticidade_nome: incidenteData.criticidade.nome
+        };
+        
+        setFormData(incidenteFormatado);
+        setOriginalData(incidenteFormatado);
         
         setIncidenteResolvido(!!incidenteData.fim);
+        
+        // Verificar se estamos no mesmo mês de criação
+        const dataCriacao = new Date(incidenteData.criado_em);
+        const hoje = new Date();
+        
+        const mesmoMes = 
+          dataCriacao.getMonth() === hoje.getMonth() && 
+          dataCriacao.getFullYear() === hoje.getFullYear();
+        
+        setMesmoMesCriacao(mesmoMes);
+        
+        // Verificar se precisa de aprovação com base no perfil
+        const precisaAprovar = (currentUser?.role === 'operador') || 
+                              (currentUser?.role === 'gestor' && !isAdmin());
+        
+        setPrecisaAprovacao(precisaAprovar);
+        
+        if (!mesmoMes) {
+          setMsgAviso('Este incidente foi criado em um mês anterior e não pode ser modificado ou excluído pela interface.');
+        } else if (precisaAprovar) {
+          if (currentUser?.role === 'operador') {
+            setMsgAviso('As alterações feitas precisarão ser aprovadas por um gestor.');
+          } else if (currentUser?.role === 'gestor') {
+            setMsgAviso('As alterações feitas precisarão ser aprovadas por um administrador.');
+          }
+        }
         
         // Carregar tipos de incidente
         const { data: tiposData } = await supabase
@@ -153,7 +204,7 @@ const EditarIncidente: React.FC = () => {
     };
     
     fetchData();
-  }, [id, navigate]);
+  }, [id, navigate, currentUser?.role, isAdmin]);
   
   // Atualizar segmentos filtrados quando o ambiente mudar
   useEffect(() => {
@@ -185,6 +236,21 @@ const EditarIncidente: React.FC = () => {
           ambiente_id: ambienteId,
           segmento_id: 0
         } : null);
+      }
+      
+      // Atualizar nome do campo selecionado para exibição em caso de aprovação
+      if (name === 'tipo_id') {
+        const tipo = tiposIncidente.find(t => t.id === parseInt(value, 10));
+        setFormData(prev => prev ? { ...prev, tipo_nome: tipo?.nome } : null);
+      } else if (name === 'ambiente_id') {
+        const ambiente = ambientes.find(a => a.id === parseInt(value, 10));
+        setFormData(prev => prev ? { ...prev, ambiente_nome: ambiente?.nome } : null);
+      } else if (name === 'segmento_id') {
+        const segmento = segmentos.find(s => s.id === parseInt(value, 10));
+        setFormData(prev => prev ? { ...prev, segmento_nome: segmento?.nome } : null);
+      } else if (name === 'criticidade_id') {
+        const criticidade = criticidades.find(c => c.id === parseInt(value, 10));
+        setFormData(prev => prev ? { ...prev, criticidade_nome: criticidade?.nome } : null);
       }
     } else {
       setFormData(prev => prev ? { ...prev, [name]: value } : null);
@@ -229,16 +295,77 @@ const EditarIncidente: React.FC = () => {
     return Math.round(diffMs / (1000 * 60));
   };
   
+  // Verificar se houve alterações no formulário
+  const verificarAlteracoes = (): boolean => {
+    if (!originalData || !formData) return false;
+    
+    // Campos a verificar
+    const campos = ['inicio', 'fim', 'tipo_id', 'ambiente_id', 'segmento_id', 'criticidade_id', 'descricao', 'acoes_tomadas'];
+    
+    for (const campo of campos) {
+      if (originalData[campo as keyof IncidenteData] !== formData[campo as keyof IncidenteData]) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+  
+  // Submeter para aprovação
+  const submeterParaAprovacao = async (dadosAtualizados: any) => {
+    try {
+      // Incluir informações para aprovação
+      const dadosAprovacao = {
+        incidente_id: parseInt(id!),
+        tipo_operacao: 'edicao',
+        dados_antes: {
+          ...originalData,
+          perfil_solicitante: currentUser?.perfil
+        },
+        dados_depois: {
+          ...dadosAtualizados,
+          atualizado_por: currentUser?.nome || 'Sistema'
+        },
+        solicitado_por: currentUser?.id
+      };
+      
+      const { error } = await supabase
+        .from('aprovacoes_incidentes')
+        .insert(dadosAprovacao);
+      
+      if (error) throw error;
+      
+      toast.success('Solicitação de alteração enviada para aprovação!');
+      navigate('/incidentes');
+    } catch (error) {
+      console.error('Erro ao submeter para aprovação:', error);
+      toast.error('Erro ao enviar solicitação para aprovação');
+    }
+  };
+  
   // Salvar alterações
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData) return;
     
+    // Verificar se estamos no mesmo mês de criação
+    if (!mesmoMesCriacao) {
+      toast.error('Este incidente não pode ser modificado pois foi criado em um mês anterior');
+      return;
+    }
+    
     // Validar formulário
     if (!formData.tipo_id || !formData.ambiente_id || !formData.segmento_id || 
         !formData.criticidade_id || !formData.descricao || !formData.inicio) {
       toast.error('Por favor, preencha todos os campos obrigatórios');
+      return;
+    }
+    
+    // Verificar se houve alterações
+    if (!verificarAlteracoes()) {
+      toast.info('Nenhuma alteração foi feita');
+      navigate('/incidentes');
       return;
     }
     
@@ -263,17 +390,26 @@ const EditarIncidente: React.FC = () => {
       delete incidenteData.id;
       delete incidenteData.criado_em;
       delete incidenteData.criado_por;
+      delete incidenteData.tipo_nome;
+      delete incidenteData.ambiente_nome;
+      delete incidenteData.segmento_nome;
+      delete incidenteData.criticidade_nome;
       
-      // Atualizar no banco
-      const { error } = await supabase
-        .from('incidentes')
-        .update(incidenteData)
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      toast.success('Incidente atualizado com sucesso!');
-      navigate('/incidentes');
+      if (precisaAprovacao) {
+        // Enviar para aprovação
+        await submeterParaAprovacao(incidenteData);
+      } else {
+        // Atualizar no banco diretamente (admin não precisa de aprovação)
+        const { error } = await supabase
+          .from('incidentes')
+          .update(incidenteData)
+          .eq('id', id);
+        
+        if (error) throw error;
+        
+        toast.success('Incidente atualizado com sucesso!');
+        navigate('/incidentes');
+      }
     } catch (error) {
       console.error('Erro ao atualizar incidente:', error);
       toast.error('Erro ao atualizar incidente');
@@ -282,22 +418,64 @@ const EditarIncidente: React.FC = () => {
     }
   };
   
+  // Submeter exclusão para aprovação
+  const submeterExclusaoParaAprovacao = async () => {
+    try {
+      // Incluir informações para aprovação
+      const dadosAprovacao = {
+        incidente_id: parseInt(id!),
+        tipo_operacao: 'exclusao',
+        dados_antes: {
+          ...originalData,
+          perfil_solicitante: currentUser?.perfil
+        },
+        dados_depois: null,
+        solicitado_por: currentUser?.id
+      };
+      
+      const { error } = await supabase
+        .from('aprovacoes_incidentes')
+        .insert(dadosAprovacao);
+      
+      if (error) throw error;
+      
+      toast.success('Solicitação de exclusão enviada para aprovação!');
+      navigate('/incidentes');
+    } catch (error) {
+      console.error('Erro ao submeter exclusão para aprovação:', error);
+      toast.error('Erro ao enviar solicitação de exclusão para aprovação');
+    }
+  };
+  
   // Excluir incidente
   const handleDelete = async () => {
     if (!id || !confirmarExclusao) return;
     
+    // Verificar se estamos no mesmo mês de criação
+    if (!mesmoMesCriacao) {
+      toast.error('Este incidente não pode ser excluído pois foi criado em um mês anterior');
+      setConfirmarExclusao(false);
+      return;
+    }
+    
     try {
       setSaving(true);
       
-      const { error } = await supabase
-        .from('incidentes')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      toast.success('Incidente excluído com sucesso!');
-      navigate('/incidentes');
+      if (precisaAprovacao) {
+        // Enviar exclusão para aprovação
+        await submeterExclusaoParaAprovacao();
+      } else {
+        // Excluir diretamente (admin não precisa de aprovação)
+        const { error } = await supabase
+          .from('incidentes')
+          .delete()
+          .eq('id', id);
+        
+        if (error) throw error;
+        
+        toast.success('Incidente excluído com sucesso!');
+        navigate('/incidentes');
+      }
     } catch (error) {
       console.error('Erro ao excluir incidente:', error);
       toast.error('Erro ao excluir incidente');
@@ -344,7 +522,7 @@ const EditarIncidente: React.FC = () => {
           <button
             onClick={() => setConfirmarExclusao(true)}
             className="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            disabled={saving}
+            disabled={saving || !mesmoMesCriacao}
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Excluir
@@ -362,13 +540,29 @@ const EditarIncidente: React.FC = () => {
           <button
             onClick={handleSubmit}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            disabled={saving}
+            disabled={saving || !mesmoMesCriacao}
           >
             <Save className="h-4 w-4 mr-2" />
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
         </div>
       </div>
+      
+      {/* Aviso de restrições */}
+      {msgAviso && (
+        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6 flex items-start">
+          <AlertCircle className="h-5 w-5 text-yellow-500 mr-3 mt-0.5" />
+          <div>
+            <p className="text-sm text-yellow-700">{msgAviso}</p>
+            {!mesmoMesCriacao && (
+              <p className="text-xs text-yellow-600 mt-1">
+                Este incidente foi criado em {new Date(originalData?.criado_em || '').toLocaleDateString('pt-BR')}.
+                Para modificações, entre em contato com o administrador do banco de dados.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
       
       {/* Modal de Confirmação de Exclusão */}
       {confirmarExclusao && (
@@ -377,6 +571,11 @@ const EditarIncidente: React.FC = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Confirmar Exclusão</h3>
             <p className="text-sm text-gray-500 mb-6">
               Tem certeza que deseja excluir este incidente? Esta ação não pode ser desfeita.
+              {precisaAprovacao && (
+                <span className="block mt-2 font-medium">
+                  Esta exclusão precisará ser aprovada por um {currentUser?.role === 'operador' ? 'gestor' : 'administrador'}.
+                </span>
+              )}
             </p>
             <div className="flex justify-end space-x-3">
               <button
@@ -389,7 +588,7 @@ const EditarIncidente: React.FC = () => {
                 onClick={handleDelete}
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
-                Excluir
+                {precisaAprovacao ? 'Solicitar Exclusão' : 'Excluir'}
               </button>
             </div>
           </div>
@@ -416,6 +615,7 @@ const EditarIncidente: React.FC = () => {
                     onChange={handleChange}
                     className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                     required
+                    disabled={!mesmoMesCriacao}
                   />
                 </div>
                 
@@ -431,6 +631,7 @@ const EditarIncidente: React.FC = () => {
                         checked={incidenteResolvido}
                         onChange={toggleIncidenteResolvido}
                         className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                        disabled={!mesmoMesCriacao}
                       />
                       <label htmlFor="incidenteResolvido" className="ml-2 text-sm text-gray-600">
                         Incidente resolvido
@@ -443,9 +644,9 @@ const EditarIncidente: React.FC = () => {
                     name="fim"
                     value={formData.fim || ''}
                     onChange={handleChange}
-                    disabled={!incidenteResolvido}
+                    disabled={!incidenteResolvido || !mesmoMesCriacao}
                     className={`w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
-                      !incidenteResolvido ? 'bg-gray-100 cursor-not-allowed' : ''
+                      !incidenteResolvido || !mesmoMesCriacao ? 'bg-gray-100 cursor-not-allowed' : ''
                     }`}
                   />
                 </div>
@@ -467,6 +668,7 @@ const EditarIncidente: React.FC = () => {
                     onChange={handleChange}
                     className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                     required
+                    disabled={!mesmoMesCriacao}
                   >
                     <option value="">Selecione um tipo</option>
                     {tiposIncidente.map(tipo => (
@@ -488,6 +690,7 @@ const EditarIncidente: React.FC = () => {
                     onChange={handleChange}
                     className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                     required
+                    disabled={!mesmoMesCriacao}
                   >
                     <option value="">Selecione a criticidade</option>
                     {criticidades.map(crit => (
@@ -515,6 +718,7 @@ const EditarIncidente: React.FC = () => {
                     onChange={handleChange}
                     className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                     required
+                    disabled={!mesmoMesCriacao}
                   >
                     <option value="">Selecione um ambiente</option>
                     {ambientes.map(amb => (
@@ -534,9 +738,9 @@ const EditarIncidente: React.FC = () => {
                     name="segmento_id"
                     value={formData.segmento_id}
                     onChange={handleChange}
-                    disabled={!formData.ambiente_id}
+                    disabled={!formData.ambiente_id || !mesmoMesCriacao}
                     className={`w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
-                      !formData.ambiente_id ? 'bg-gray-100 cursor-not-allowed' : ''
+                      !formData.ambiente_id || !mesmoMesCriacao ? 'bg-gray-100 cursor-not-allowed' : ''
                     }`}
                     required
                   >
@@ -570,6 +774,7 @@ const EditarIncidente: React.FC = () => {
                     placeholder="Descreva o que aconteceu com detalhes..."
                     className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                     required
+                    disabled={!mesmoMesCriacao}
                   ></textarea>
                 </div>
                 
@@ -585,6 +790,7 @@ const EditarIncidente: React.FC = () => {
                     onChange={handleChange}
                     placeholder="Descreva as ações que foram tomadas para resolver o incidente..."
                     className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    disabled={!mesmoMesCriacao}
                   ></textarea>
                 </div>
               </div>
@@ -596,10 +802,10 @@ const EditarIncidente: React.FC = () => {
                 type="button"
                 onClick={() => setConfirmarExclusao(true)}
                 className="px-4 py-2 border border-red-300 rounded-md text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                disabled={saving}
+                disabled={saving || !mesmoMesCriacao}
               >
                 <Trash2 className="inline-block h-4 w-4 mr-2" />
-                Excluir Incidente
+                {precisaAprovacao ? 'Solicitar Exclusão' : 'Excluir Incidente'}
               </button>
               
               <div className="flex space-x-3">
@@ -615,9 +821,9 @@ const EditarIncidente: React.FC = () => {
                 <button
                   type="submit"
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                  disabled={saving}
+                  disabled={saving || !mesmoMesCriacao}
                 >
-                  {saving ? 'Salvando...' : 'Salvar Alterações'}
+                  {saving ? 'Salvando...' : precisaAprovacao ? 'Solicitar Alterações' : 'Salvar Alterações'}
                 </button>
               </div>
             </div>

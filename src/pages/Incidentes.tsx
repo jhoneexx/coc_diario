@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Filter, Download, FileText } from 'lucide-react';
+import { Plus, Filter, Download, FileText, CheckSquare } from 'lucide-react';
 import supabase from '../lib/supabase';
 import FilterBar from '../components/common/FilterBar';
 import IncidentList from '../components/dashboard/IncidentList';
+import { useAuth } from '../contexts/AuthContext';
 
 // Tipos
 interface Ambiente {
@@ -33,10 +34,12 @@ interface Incidente {
 
 const Incidentes: React.FC = () => {
   const navigate = useNavigate();
+  const { isAdmin, isGestor } = useAuth();
   const [loading, setLoading] = useState(true);
   const [incidentes, setIncidentes] = useState<Incidente[]>([]);
   const [ambientes, setAmbientes] = useState<Ambiente[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
   
   // Filtros
   const [filtroAmbiente, setFiltroAmbiente] = useState<number | null>(null);
@@ -110,6 +113,40 @@ const Incidentes: React.FC = () => {
     
     fetchIncidentes();
   }, [filtroAmbiente, filtroPeriodo]);
+  
+  // Verificar pendências de aprovação para gestor/admin
+  useEffect(() => {
+    if (!isGestor() && !isAdmin()) return;
+    
+    const fetchPendingApprovals = async () => {
+      try {
+        let query = supabase
+          .from('aprovacoes_incidentes')
+          .select('count', { count: 'exact', head: true })
+          .eq('status', 'pendente');
+        
+        if (isGestor() && !isAdmin()) {
+          // Gestor só vê aprovações de operadores
+          query = query.eq('dados_antes->perfil_solicitante', 'operador');
+        }
+        
+        const { count, error } = await query;
+        
+        if (error) throw error;
+        
+        setPendingApprovals(count || 0);
+      } catch (error) {
+        console.error('Erro ao verificar aprovações pendentes:', error);
+      }
+    };
+    
+    fetchPendingApprovals();
+    
+    // Configurar atualização periódica a cada 1 minuto
+    const intervalId = setInterval(fetchPendingApprovals, 60000);
+    
+    return () => clearInterval(intervalId);
+  }, [isGestor, isAdmin]);
 
   // Handler para criar novo incidente
   const handleNovoIncidente = () => {
@@ -119,6 +156,11 @@ const Incidentes: React.FC = () => {
   // Toggle para mostrar/esconder filtros
   const toggleFilters = () => {
     setShowFilters(!showFilters);
+  };
+  
+  // Ir para a tela de aprovações
+  const handleVerAprovacoes = () => {
+    navigate('/incidentes/aprovacoes');
   };
   
   // Exportar para CSV
@@ -184,6 +226,21 @@ const Incidentes: React.FC = () => {
             <Download className="mr-2 h-4 w-4" />
             Exportar
           </button>
+          
+          {(isAdmin() || isGestor()) && (
+            <button
+              onClick={handleVerAprovacoes}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 relative"
+            >
+              <CheckSquare className="mr-2 h-4 w-4" />
+              Aprovações
+              {pendingApprovals > 0 && (
+                <span className="absolute -top-2 -right-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
+                  {pendingApprovals}
+                </span>
+              )}
+            </button>
+          )}
           
           <button 
             onClick={handleNovoIncidente}

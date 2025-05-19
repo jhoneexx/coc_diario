@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { FileText, Download, BarChart2, PieChart, Clock1, Layers, ListFilter, Award, AlertTriangle } from 'lucide-react';
+import { FileText, Download, BarChart2, PieChart, Clock1, Layers, ListFilter, Award } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import { ApexOptions } from 'apexcharts';
 import supabase from '../lib/supabase';
@@ -10,7 +10,6 @@ import DetailedReportTable from '../components/relatorios/DetailedReportTable';
 import IncidentTypeQuantityChart from '../components/dashboard/IncidentTypeQuantityChart';
 import IncidentImpactHoursChart from '../components/dashboard/IncidentImpactHoursChart';
 import IncidentTrendChart from '../components/relatorios/IncidentTrendChart';
-import MetaAtingimentoCard from '../components/dashboard/MetaAtingimentoCard';
 import { calcularMTTR, calcularMTBF, calcularDisponibilidade } from '../utils/metricsCalculations';
 
 // Tipos
@@ -27,9 +26,6 @@ interface Meta {
   peso_percentual: number;
   mttr_permite_superacao: boolean;
   mtbf_permite_superacao: boolean;
-  ambiente?: {
-    nome: string;
-  };
 }
 
 interface Incidente {
@@ -65,26 +61,12 @@ interface MetricsData {
   meta_mttr: number | null;
   meta_mtbf: number | null;
   meta_disponibilidade: number | null;
-  meta_peso_percentual: number | null;
-  meta_mttr_permite_superacao: boolean | null;
-  meta_mtbf_permite_superacao: boolean | null;
-}
-
-interface MetaRealizacaoData {
-  ambiente_id: number;
-  ambiente_nome: string;
-  mttr: number;
-  mtbf: number;
-  disponibilidade: number;
-  mttr_meta: number;
-  mtbf_meta: number;
-  disponibilidade_meta: number;
-  peso_percentual: number;
-  mttr_percentual_atingido: number;
-  mtbf_percentual_atingido: number;
-  disponibilidade_percentual_atingido: number;
-  mttr_permite_superacao: boolean;
-  mtbf_permite_superacao: boolean;
+  peso_percentual: number | null;
+  mttr_permite_superacao: boolean | null;
+  mtbf_permite_superacao: boolean | null;
+  mttr_percentual: number;
+  mtbf_percentual: number;
+  disponibilidade_percentual: number;
 }
 
 const Relatorios: React.FC = () => {
@@ -93,9 +75,6 @@ const Relatorios: React.FC = () => {
   const [incidentes, setIncidentes] = useState<Incidente[]>([]);
   const [metas, setMetas] = useState<Meta[]>([]);
   const [metricas, setMetricas] = useState<MetricsData[]>([]);
-  
-  // Dados para análise de metas
-  const [metaRealizacao, setMetaRealizacao] = useState<MetaRealizacaoData[]>([]);
   
   // Filtros
   const [filtroAmbiente, setFiltroAmbiente] = useState<number | null>(null);
@@ -125,10 +104,7 @@ const Relatorios: React.FC = () => {
         // Carregar metas
         const { data: metasData } = await supabase
           .from('metas')
-          .select(`
-            *,
-            ambiente:ambientes(nome)
-          `);
+          .select('*');
         
         if (metasData) {
           setMetas(metasData);
@@ -215,6 +191,30 @@ const Relatorios: React.FC = () => {
             
             // Buscar metas do ambiente
             const meta = metas.find(m => m.ambiente_id === ambId);
+
+            // Calcular percentuais de atingimento das metas
+            let mttrPercentual = 0;
+            let mtbfPercentual = 0;
+            let disponibilidadePercentual = 0;
+            
+            if (meta) {
+              // MTTR (menor é melhor)
+              mttrPercentual = mttr > 0 ? 100 * (meta.mttr_meta / mttr) : 100;
+              if (!meta.mttr_permite_superacao) {
+                mttrPercentual = Math.min(100, mttrPercentual);
+              }
+              
+              // MTBF (maior é melhor)
+              mtbfPercentual = meta.mtbf_meta > 0 ? 100 * (mtbf / meta.mtbf_meta) : 0;
+              if (!meta.mtbf_permite_superacao) {
+                mtbfPercentual = Math.min(100, mtbfPercentual);
+              }
+              
+              // Disponibilidade (sempre limitado a 100%)
+              disponibilidadePercentual = meta.disponibilidade_meta > 0 
+                ? Math.min(100, 100 * (disponibilidade / meta.disponibilidade_meta)) 
+                : 0;
+            }
             
             metricasData.push({
               ambiente_id: ambId,
@@ -227,71 +227,16 @@ const Relatorios: React.FC = () => {
               meta_mttr: meta?.mttr_meta || null,
               meta_mtbf: meta?.mtbf_meta || null,
               meta_disponibilidade: meta?.disponibilidade_meta || null,
-              meta_peso_percentual: meta?.peso_percentual || null,
-              meta_mttr_permite_superacao: meta?.mttr_permite_superacao ?? null,
-              meta_mtbf_permite_superacao: meta?.mtbf_permite_superacao ?? null
+              peso_percentual: meta?.peso_percentual || null,
+              mttr_permite_superacao: meta?.mttr_permite_superacao || null,
+              mtbf_permite_superacao: meta?.mtbf_permite_superacao || null,
+              mttr_percentual: mttrPercentual,
+              mtbf_percentual: mtbfPercentual,
+              disponibilidade_percentual: disponibilidadePercentual
             });
           }
           
           setMetricas(metricasData);
-          
-          // Calcular realização das metas para a aba de metas
-          const metasRealizacaoData: MetaRealizacaoData[] = [];
-          
-          for (const meta of metas) {
-            const ambienteNome = ambientes.find(a => a.id === meta.ambiente_id)?.nome || `Ambiente ${meta.ambiente_id}`;
-            
-            // Filtrar incidentes deste ambiente
-            const incidentesDoAmbiente = incidentesData?.filter(inc => inc.ambiente_id === meta.ambiente_id) || [];
-            
-            // Calcular métricas reais
-            const mttrReal = calcularMTTR(incidentesDoAmbiente);
-            const mtbfReal = calcularMTBF(incidentesDoAmbiente, filtroPeriodo.inicio, filtroPeriodo.fim);
-            const dispReal = calcularDisponibilidade(incidentesDoAmbiente, filtroPeriodo.inicio, filtroPeriodo.fim);
-            
-            // Calcular percentual de atingimento
-            let mttrPercentualAtingido = meta.mttr_meta > 0 
-              ? 100 * (meta.mttr_meta / Math.max(0.01, mttrReal))
-              : 0;
-            
-            // Se não permite superação, limitar a 100%
-            if (!meta.mttr_permite_superacao) {
-              mttrPercentualAtingido = Math.min(100, mttrPercentualAtingido);
-            }
-              
-            let mtbfPercentualAtingido = mtbfReal > 0
-              ? 100 * (mtbfReal / Math.max(0.01, meta.mtbf_meta))
-              : 0;
-            
-            // Se não permite superação, limitar a 100%
-            if (!meta.mtbf_permite_superacao) {
-              mtbfPercentualAtingido = Math.min(100, mtbfPercentualAtingido);
-            }
-              
-            // Disponibilidade sempre limitada a 100%
-            const dispPercentualAtingido = meta.disponibilidade_meta > 0
-              ? Math.min(100, 100 * (dispReal / meta.disponibilidade_meta))
-              : 0;
-            
-            metasRealizacaoData.push({
-              ambiente_id: meta.ambiente_id,
-              ambiente_nome: ambienteNome,
-              mttr: mttrReal,
-              mtbf: mtbfReal,
-              disponibilidade: dispReal,
-              mttr_meta: meta.mttr_meta,
-              mtbf_meta: meta.mtbf_meta,
-              disponibilidade_meta: meta.disponibilidade_meta,
-              peso_percentual: meta.peso_percentual,
-              mttr_percentual_atingido: mttrPercentualAtingido,
-              mtbf_percentual_atingido: mtbfPercentualAtingido,
-              disponibilidade_percentual_atingido: dispPercentualAtingido,
-              mttr_permite_superacao: meta.mttr_permite_superacao,
-              mtbf_permite_superacao: meta.mtbf_permite_superacao
-            });
-          }
-          
-          setMetaRealizacao(metasRealizacaoData);
         }
       } catch (error) {
         console.error('Erro ao carregar dados filtrados:', error);
@@ -303,6 +248,37 @@ const Relatorios: React.FC = () => {
     
     fetchDataFiltrada();
   }, [filtroAmbiente, filtroPeriodo, metas, ambientes]);
+  
+  // Calcular atingimento geral das metas (ponderado pelo peso percentual)
+  const calcularAtingimentoGeral = (tipoMetrica: 'mttr' | 'mtbf' | 'disponibilidade') => {
+    if (metricas.length === 0) return 0;
+    
+    const metricasComPeso = metricas.filter(m => m.peso_percentual !== null);
+    if (metricasComPeso.length === 0) return 0;
+    
+    const totalPercentual = metricasComPeso.reduce((sum, m) => sum + (m.peso_percentual || 0), 0);
+    if (totalPercentual <= 0) return 0;
+    
+    const somaPonderada = metricasComPeso.reduce((sum, m) => {
+      let percentual;
+      
+      switch (tipoMetrica) {
+        case 'mttr':
+          percentual = m.mttr_percentual;
+          break;
+        case 'mtbf':
+          percentual = m.mtbf_percentual;
+          break;
+        case 'disponibilidade':
+          percentual = m.disponibilidade_percentual;
+          break;
+      }
+      
+      return sum + (percentual * (m.peso_percentual || 0) / totalPercentual);
+    }, 0);
+    
+    return somaPonderada;
+  };
   
   // Dados para o gráfico de tipos de incidente
   const tiposIncidenteChartData = React.useMemo(() => {
@@ -515,35 +491,6 @@ const Relatorios: React.FC = () => {
       console.error('Erro ao exportar relatório PDF:', error);
       toast.error('Erro ao exportar relatório para PDF');
     }
-  };
-  
-  // Calcular atingimento geral das metas (ponderado pelo peso percentual)
-  const calcularAtingimentoGeral = (tipoMetrica: 'mttr' | 'mtbf' | 'disponibilidade') => {
-    if (metaRealizacao.length === 0) return 0;
-    
-    const totalPercentual = metaRealizacao.reduce((sum, meta) => sum + meta.peso_percentual, 0);
-    if (totalPercentual <= 0) return 0;
-    
-    const somaPonderada = metaRealizacao.reduce((sum, meta) => {
-      let percentualAtingido;
-      switch (tipoMetrica) {
-        case 'mttr':
-          percentualAtingido = meta.mttr_percentual_atingido;
-          break;
-        case 'mtbf':
-          percentualAtingido = meta.mtbf_percentual_atingido;
-          break;
-        case 'disponibilidade':
-          percentualAtingido = meta.disponibilidade_percentual_atingido;
-          break;
-        default:
-          percentualAtingido = 0;
-      }
-      
-      return sum + (percentualAtingido * meta.peso_percentual / totalPercentual);
-    }, 0);
-    
-    return somaPonderada;
   };
 
   return (
@@ -948,13 +895,13 @@ const Relatorios: React.FC = () => {
               {activeView === 'metas' && (
                 <div className="space-y-6">
                   <h2 className="text-lg font-medium text-gray-900 mb-4">
-                    Relatório de Atingimento de Metas
+                    Atingimento de Metas
                   </h2>
                   
-                  <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+                  <div className="mb-6">
                     <div className="flex items-center mb-4">
                       <span className="text-gray-600 text-sm">
-                        {filtroAmbiente ? `Ambiente: ${ambientes.find(a => a.id === filtroAmbiente)?.nome || 'Selecionado'}` : 'Todos os ambientes'}
+                        {filtroAmbiente ? `Ambiente: ${metricas.find(m => m.ambiente_id === filtroAmbiente)?.ambiente_nome || 'Selecionado'}` : 'Todos os ambientes'}
                       </span>
                       <span className="mx-2 text-gray-400">•</span>
                       <span className="text-gray-600 text-sm">
@@ -962,60 +909,68 @@ const Relatorios: React.FC = () => {
                       </span>
                     </div>
                     
-                    {/* Indicadores gerais de atingimento */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                       {/* MTTR */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                      <div className="bg-white p-4 rounded-lg shadow-sm">
                         <h4 className="text-md font-medium text-gray-900 mb-2">
-                          MTTR - Atingimento Geral
+                          MTTR - Atingimento Global
                         </h4>
                         <div className="flex justify-between items-center mb-1">
                           <span className="text-sm font-medium text-gray-700">
                             {calcularAtingimentoGeral('mttr').toFixed(1)}%
                           </span>
-                          <span className="text-xs text-gray-500">Meta Geral Ponderada</span>
+                          <span className="text-xs text-gray-500">Meta ponderada</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2.5">
                           <div 
-                            className="bg-blue-600 h-2.5 rounded-full" 
+                            className={`h-2.5 rounded-full ${
+                              calcularAtingimentoGeral('mttr') >= 90 ? 'bg-green-500' : 
+                              calcularAtingimentoGeral('mttr') >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}
                             style={{ width: `${Math.min(100, calcularAtingimentoGeral('mttr'))}%` }}
                           ></div>
                         </div>
                       </div>
                       
                       {/* MTBF */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                      <div className="bg-white p-4 rounded-lg shadow-sm">
                         <h4 className="text-md font-medium text-gray-900 mb-2">
-                          MTBF - Atingimento Geral
+                          MTBF - Atingimento Global
                         </h4>
                         <div className="flex justify-between items-center mb-1">
                           <span className="text-sm font-medium text-gray-700">
                             {calcularAtingimentoGeral('mtbf').toFixed(1)}%
                           </span>
-                          <span className="text-xs text-gray-500">Meta Geral Ponderada</span>
+                          <span className="text-xs text-gray-500">Meta ponderada</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2.5">
                           <div 
-                            className="bg-green-600 h-2.5 rounded-full" 
+                            className={`h-2.5 rounded-full ${
+                              calcularAtingimentoGeral('mtbf') >= 90 ? 'bg-green-500' : 
+                              calcularAtingimentoGeral('mtbf') >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}
                             style={{ width: `${Math.min(100, calcularAtingimentoGeral('mtbf'))}%` }}
                           ></div>
                         </div>
                       </div>
                       
                       {/* Disponibilidade */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                      <div className="bg-white p-4 rounded-lg shadow-sm">
                         <h4 className="text-md font-medium text-gray-900 mb-2">
-                          Disponibilidade - Atingimento Geral
+                          Disponibilidade - Atingimento Global
                         </h4>
                         <div className="flex justify-between items-center mb-1">
                           <span className="text-sm font-medium text-gray-700">
                             {calcularAtingimentoGeral('disponibilidade').toFixed(1)}%
                           </span>
-                          <span className="text-xs text-gray-500">Meta Geral Ponderada</span>
+                          <span className="text-xs text-gray-500">Meta ponderada</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2.5">
                           <div 
-                            className="bg-purple-600 h-2.5 rounded-full" 
+                            className={`h-2.5 rounded-full ${
+                              calcularAtingimentoGeral('disponibilidade') >= 90 ? 'bg-green-500' : 
+                              calcularAtingimentoGeral('disponibilidade') >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}
                             style={{ width: `${Math.min(100, calcularAtingimentoGeral('disponibilidade'))}%` }}
                           ></div>
                         </div>
@@ -1023,132 +978,116 @@ const Relatorios: React.FC = () => {
                     </div>
                   </div>
                   
-                  {/* Detalhamento por ambiente */}
-                  {metaRealizacao.length > 0 ? (
-                    <div className="bg-white rounded-lg shadow overflow-hidden">
-                      <div className="p-4 border-b border-gray-200">
-                        <h3 className="text-md font-medium text-gray-900">Detalhamento por Ambiente</h3>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4">
-                        {metaRealizacao.map(meta => (
-                          <div key={meta.ambiente_id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                            <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-md font-medium text-gray-900">{meta.ambiente_nome}</h4>
-                              <span className="px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800">
-                                Peso: {meta.peso_percentual}%
+                  {/* Cards de métricas por ambiente */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {metricas.filter(m => m.meta_mttr !== null).map(metrica => (
+                      <div key={metrica.ambiente_id} className="bg-white rounded-lg shadow overflow-hidden">
+                        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                          <div>
+                            <h3 className="font-medium text-gray-900">{metrica.ambiente_nome}</h3>
+                            {metrica.peso_percentual !== null && (
+                              <span className="text-xs text-gray-500">
+                                Peso na meta global: {metrica.peso_percentual}%
                               </span>
-                            </div>
-                            
-                            {/* MTTR */}
-                            <div className="mb-4">
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="text-sm font-medium">MTTR</span>
-                                <div className="flex items-center">
-                                  <span className={`text-sm ${
-                                    meta.mttr <= meta.mttr_meta ? 'text-green-600' : 'text-red-600'
-                                  }`}>
-                                    {meta.mttr.toFixed(2)}h / Meta: {meta.mttr_meta.toFixed(2)}h
+                            )}
+                          </div>
+                        </div>
+                        <div className="p-4 space-y-4">
+                          {/* MTTR */}
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-sm font-medium text-gray-700">MTTR</span>
+                              <div className="text-sm">
+                                <span className={metrica.mttr <= (metrica.meta_mttr || 0) ? "text-green-600" : "text-red-600"}>
+                                  {metrica.mttr.toFixed(2)}h
+                                </span>
+                                {" / "}
+                                <span className="text-gray-500">{metrica.meta_mttr?.toFixed(2)}h</span>
+                                {metrica.mttr_permite_superacao && metrica.mttr_percentual > 100 && (
+                                  <span className="ml-2 text-xs text-green-600">
+                                    ({metrica.mttr_percentual.toFixed(1)}%)
                                   </span>
-                                </div>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className={`h-2 rounded-full ${
-                                    meta.mttr_percentual_atingido >= 90 ? 'bg-green-500' : 
-                                    meta.mttr_percentual_atingido >= 70 ? 'bg-yellow-500' : 'bg-red-500'
-                                  }`}
-                                  style={{ width: `${Math.min(100, meta.mttr_percentual_atingido)}%` }}
-                                ></div>
-                              </div>
-                              <div className="flex justify-between text-xs mt-1">
-                                <span>{meta.mttr_percentual_atingido.toFixed(1)}% atingido</span>
-                                {meta.mttr_permite_superacao && meta.mttr_percentual_atingido > 100 && (
-                                  <span className="text-green-600">(Superação permitida)</span>
                                 )}
                               </div>
                             </div>
-                            
-                            {/* MTBF */}
-                            <div className="mb-4">
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="text-sm font-medium">MTBF</span>
-                                <div className="flex items-center">
-                                  <span className={`text-sm ${
-                                    meta.mtbf >= meta.mtbf_meta ? 'text-green-600' : 'text-red-600'
-                                  }`}>
-                                    {(meta.mtbf / 24).toFixed(2)} dias / Meta: {(meta.mtbf_meta / 24).toFixed(2)} dias
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className={`h-2 rounded-full ${
-                                    meta.mtbf_percentual_atingido >= 90 ? 'bg-green-500' : 
-                                    meta.mtbf_percentual_atingido >= 70 ? 'bg-yellow-500' : 'bg-red-500'
-                                  }`}
-                                  style={{ width: `${Math.min(100, meta.mtbf_percentual_atingido)}%` }}
-                                ></div>
-                              </div>
-                              <div className="flex justify-between text-xs mt-1">
-                                <span>{meta.mtbf_percentual_atingido.toFixed(1)}% atingido</span>
-                                {meta.mtbf_permite_superacao && meta.mtbf_percentual_atingido > 100 && (
-                                  <span className="text-green-600">(Superação permitida)</span>
-                                )}
-                              </div>
-                            </div>
-                            
-                            {/* Disponibilidade */}
-                            <div>
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="text-sm font-medium">Disponibilidade</span>
-                                <div className="flex items-center">
-                                  <span className={`text-sm ${
-                                    meta.disponibilidade >= meta.disponibilidade_meta ? 'text-green-600' : 'text-red-600'
-                                  }`}>
-                                    {meta.disponibilidade.toFixed(3)}% / Meta: {meta.disponibilidade_meta.toFixed(3)}%
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className={`h-2 rounded-full ${
-                                    meta.disponibilidade_percentual_atingido >= 90 ? 'bg-green-500' : 
-                                    meta.disponibilidade_percentual_atingido >= 70 ? 'bg-yellow-500' : 'bg-red-500'
-                                  }`}
-                                  style={{ width: `${Math.min(100, meta.disponibilidade_percentual_atingido)}%` }}
-                                ></div>
-                              </div>
-                              <div className="flex justify-between text-xs mt-1">
-                                <span>{meta.disponibilidade_percentual_atingido.toFixed(1)}% atingido</span>
-                              </div>
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div 
+                                className={`h-1.5 rounded-full ${
+                                  metrica.mttr_percentual >= 95 ? 'bg-green-500' : 
+                                  metrica.mttr_percentual >= 80 ? 'bg-blue-500' : 
+                                  metrica.mttr_percentual >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                                }`}
+                                style={{ width: `${Math.min(100, metrica.mttr_percentual)}%` }}
+                              ></div>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                      
-                      {/* Quando não há metas configuradas */}
-                      {metaRealizacao.length === 0 && (
-                        <div className="p-6 text-center">
-                          <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-2" />
-                          <h3 className="text-lg font-medium text-gray-900">Sem metas configuradas</h3>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Configure metas na seção de Configurações para visualizar o atingimento.
-                          </p>
+                          
+                          {/* MTBF */}
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-sm font-medium text-gray-700">MTBF</span>
+                              <div className="text-sm">
+                                <span className={metrica.mtbf >= (metrica.meta_mtbf || 0) ? "text-green-600" : "text-red-600"}>
+                                  {(metrica.mtbf / 24).toFixed(2)} dias
+                                </span>
+                                {" / "}
+                                <span className="text-gray-500">{metrica.meta_mtbf ? (metrica.meta_mtbf / 24).toFixed(2) : '-'} dias</span>
+                                {metrica.mtbf_permite_superacao && metrica.mtbf_percentual > 100 && (
+                                  <span className="ml-2 text-xs text-green-600">
+                                    ({metrica.mtbf_percentual.toFixed(1)}%)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div 
+                                className={`h-1.5 rounded-full ${
+                                  metrica.mtbf_percentual >= 95 ? 'bg-green-500' : 
+                                  metrica.mtbf_percentual >= 80 ? 'bg-blue-500' : 
+                                  metrica.mtbf_percentual >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                                }`}
+                                style={{ width: `${Math.min(100, metrica.mtbf_percentual)}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          
+                          {/* Disponibilidade */}
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-sm font-medium text-gray-700">Disponibilidade</span>
+                              <div className="text-sm">
+                                <span className={metrica.disponibilidade >= (metrica.meta_disponibilidade || 0) ? "text-green-600" : "text-red-600"}>
+                                  {metrica.disponibilidade.toFixed(3)}%
+                                </span>
+                                {" / "}
+                                <span className="text-gray-500">{metrica.meta_disponibilidade?.toFixed(3)}%</span>
+                              </div>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div 
+                                className={`h-1.5 rounded-full ${
+                                  metrica.disponibilidade_percentual >= 95 ? 'bg-green-500' : 
+                                  metrica.disponibilidade_percentual >= 80 ? 'bg-blue-500' : 
+                                  metrica.disponibilidade_percentual >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                                }`}
+                                style={{ width: `${Math.min(100, metrica.disponibilidade_percentual)}%` }}
+                              ></div>
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="bg-white rounded-lg shadow overflow-hidden">
-                      <div className="p-6 text-center">
-                        <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-2" />
-                        <h3 className="text-lg font-medium text-gray-900">Sem metas configuradas</h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          Configure metas na seção de Configurações para visualizar o atingimento.
+                      </div>
+                    ))}
+                    
+                    {metricas.filter(m => m.meta_mttr !== null).length === 0 && (
+                      <div className="col-span-full bg-white rounded-lg shadow p-8 text-center">
+                        <Award className="mx-auto h-12 w-12 text-gray-400" />
+                        <h3 className="mt-2 text-lg font-medium text-gray-900">Nenhuma meta configurada</h3>
+                        <p className="mt-1 text-gray-500">
+                          Configure metas para os ambientes na seção de Configurações para visualizar o atingimento das metas.
                         </p>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
               
