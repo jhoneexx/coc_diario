@@ -14,6 +14,7 @@ interface MetaStats {
   mttr_meta?: number;
   mtbf_meta?: number;
   disponibilidade_meta?: number;
+  peso_percentual?: number;
 }
 
 interface ExecutiveSummaryProps {
@@ -72,6 +73,14 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({
         <span className="text-gray-600 text-sm">
           {diasPeriodo} dias
         </span>
+        {metas?.peso_percentual && (
+          <>
+            <span className="mx-2 text-gray-400">•</span>
+            <span className="text-gray-600 text-sm">
+              Peso na Meta Global: {metas.peso_percentual}%
+            </span>
+          </>
+        )}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -201,6 +210,10 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({
               
               {stats.maxDiasSemIncidentes > 7 && (
                 <li>Temos <span className="font-medium text-green-600">{stats.maxDiasSemIncidentes} dias</span> consecutivos sem incidentes.</li>
+              )}
+              
+              {metas?.peso_percentual && (
+                <li>Este ambiente representa <span className="font-medium">{metas.peso_percentual}%</span> das metas globais da organização.</li>
               )}
             </ul>
           </div>

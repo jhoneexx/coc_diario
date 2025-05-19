@@ -69,6 +69,7 @@ export interface Meta {
   mttr_meta: number;
   mtbf_meta: number;
   disponibilidade_meta: number;
+  peso_percentual: number;
   criado_em: string;
   atualizado_em: string;
 }

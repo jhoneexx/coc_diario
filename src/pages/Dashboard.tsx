@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Clock, CheckCircle, Calendar, Plus, BarChart2, Clock1 } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, Calendar, Plus, BarChart2, Clock1, Award } from 'lucide-react';
 import supabase from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import HeatMapCalendar from '../components/dashboard/HeatMapCalendar';
 import YearHeatMapCalendar from '../components/dashboard/YearHeatMapCalendar';
 import MetricCard from '../components/dashboard/MetricCard';
+import MetaAtingimentoCard from '../components/dashboard/MetaAtingimentoCard';
 import IncidentChart from '../components/dashboard/IncidentChart';
 import IncidentList from '../components/dashboard/IncidentList';
 import IncidentTypeQuantityChart from '../components/dashboard/IncidentTypeQuantityChart';
@@ -25,6 +26,7 @@ interface Meta {
   mttr_meta: number;
   mtbf_meta: number;
   disponibilidade_meta: number;
+  peso_percentual: number;
 }
 
 interface Incidente {
@@ -85,7 +87,7 @@ const Dashboard: React.FC = () => {
   const [mapaTipo, setMapaTipo] = useState<'mensal' | 'anual'>('mensal');
   
   // Estado para controlar qual visualização está ativa
-  const [activeView, setActiveView] = useState<'cards' | 'resumo'>('cards');
+  const [activeView, setActiveView] = useState<'cards' | 'resumo' | 'metas'>('cards');
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -222,6 +224,25 @@ const Dashboard: React.FC = () => {
     return ambiente ? ambiente.nome : '';
   };
 
+  // Calcular percentuais de atingimento de metas
+  const calcularPercentualMTTR = () => {
+    const meta = getMetaAmbiente();
+    if (!meta || !meta.mttr_meta || stats.mttr === 0) return 100;
+    return Math.min(100, 100 * (meta.mttr_meta / stats.mttr));
+  };
+
+  const calcularPercentualMTBF = () => {
+    const meta = getMetaAmbiente();
+    if (!meta || !meta.mtbf_meta || stats.mtbf === 0) return 0;
+    return Math.min(100, 100 * (stats.mtbf / meta.mtbf_meta));
+  };
+
+  const calcularPercentualDisponibilidade = () => {
+    const meta = getMetaAmbiente();
+    if (!meta || !meta.disponibilidade_meta || stats.disponibilidadeMedia === 0) return 0;
+    return Math.min(100, 100 * (stats.disponibilidadeMedia / meta.disponibilidade_meta));
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
@@ -236,22 +257,33 @@ const Dashboard: React.FC = () => {
           <div className="inline-flex rounded-md shadow-sm" role="group">
             <button
               onClick={() => setActiveView('cards')}
-              className={`px-4 py-2 text-sm font-medium border rounded-l-lg ${
+              className={`px-4 py-2 text-sm font-medium border ${
                 activeView === 'cards'
                   ? 'bg-primary-600 text-white border-primary-600'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
+              } ${activeView === 'cards' ? 'rounded-l-lg' : activeView === 'resumo' ? 'border-r-0' : 'rounded-l-lg'}`}
             >
               <BarChart2 className="inline-block h-4 w-4 mr-2" />
               Métricas
             </button>
             <button
+              onClick={() => setActiveView('metas')}
+              className={`px-4 py-2 text-sm font-medium border ${
+                activeView === 'metas'
+                  ? 'bg-primary-600 text-white border-primary-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              } ${activeView === 'resumo' ? 'rounded-r-lg' : 'border-r-0'}`}
+            >
+              <Award className="inline-block h-4 w-4 mr-2" />
+              Metas
+            </button>
+            <button
               onClick={() => setActiveView('resumo')}
-              className={`px-4 py-2 text-sm font-medium border rounded-r-lg ${
+              className={`px-4 py-2 text-sm font-medium border ${
                 activeView === 'resumo'
                   ? 'bg-primary-600 text-white border-primary-600'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
+              } ${activeView === 'resumo' ? 'rounded-r-lg' : 'rounded-r-lg'}`}
             >
               <Clock1 className="inline-block h-4 w-4 mr-2" />
               Resumo Executivo
@@ -285,6 +317,181 @@ const Dashboard: React.FC = () => {
           periodo={filtroPeriodo}
           ambiente={getAmbienteNome()}
         />
+      ) : activeView === 'metas' ? (
+        /* Visualização de Atingimento de Metas */
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Atingimento de Metas</h2>
+          
+          <div className="flex items-center mb-6">
+            <span className="text-gray-600 text-sm">
+              {ambiente ? `Ambiente: ${getAmbienteNome()}` : 'Todos os ambientes'}
+            </span>
+            <span className="mx-2 text-gray-400">•</span>
+            <span className="text-gray-600 text-sm">
+              Período: {new Date(filtroPeriodo.inicio).toLocaleDateString('pt-BR')} a {new Date(filtroPeriodo.fim).toLocaleDateString('pt-BR')}
+            </span>
+            {getMetaAmbiente()?.peso_percentual && (
+              <>
+                <span className="mx-2 text-gray-400">•</span>
+                <span className="text-gray-600 text-sm">
+                  Peso na Meta Global: {getMetaAmbiente()?.peso_percentual}%
+                </span>
+              </>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            {/* MTTR */}
+            <MetaAtingimentoCard
+              titulo="MTTR (horas)"
+              valor={stats.mttr}
+              meta={getMetaAmbiente()?.mttr_meta}
+              unidade="h"
+              descricao={stats.mttr <= (getMetaAmbiente()?.mttr_meta || 0) ? "Dentro da meta" : "Acima da meta"}
+              pesoPercentual={getMetaAmbiente()?.peso_percentual}
+              menorMelhor={true}
+              icon={<Clock className="h-5 w-5 text-blue-500" />}
+            />
+            
+            {/* MTBF */}
+            <MetaAtingimentoCard
+              titulo="MTBF (dias)"
+              valor={stats.mtbf / 24}
+              meta={getMetaAmbiente()?.mtbf_meta ? getMetaAmbiente()?.mtbf_meta / 24 : undefined}
+              unidade="dias"
+              descricao={stats.mtbf >= (getMetaAmbiente()?.mtbf_meta || 0) ? "Dentro da meta" : "Abaixo da meta"}
+              pesoPercentual={getMetaAmbiente()?.peso_percentual}
+              menorMelhor={false}
+              icon={<Calendar className="h-5 w-5 text-green-500" />}
+            />
+            
+            {/* Disponibilidade */}
+            <MetaAtingimentoCard
+              titulo="Disponibilidade"
+              valor={stats.disponibilidadeMedia}
+              meta={getMetaAmbiente()?.disponibilidade_meta}
+              unidade="%"
+              descricao={stats.disponibilidadeMedia >= (getMetaAmbiente()?.disponibilidade_meta || 0) ? "Dentro da meta" : "Abaixo da meta"}
+              pesoPercentual={getMetaAmbiente()?.peso_percentual}
+              menorMelhor={false}
+              icon={<CheckCircle className="h-5 w-5 text-purple-500" />}
+            />
+          </div>
+          
+          {/* Resumo do atingimento */}
+          <div className="bg-gray-50 p-4 rounded-lg mt-6">
+            <h3 className="text-lg font-medium mb-4">Resumo do Atingimento de Metas</h3>
+            
+            <div className="space-y-4">
+              {/* MTTR */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm font-medium">MTTR</span>
+                  <span className="text-sm">{calcularPercentualMTTR().toFixed(1)}% atingido</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div 
+                    className="bg-blue-600 h-2.5 rounded-full" 
+                    style={{ width: `${Math.min(100, calcularPercentualMTTR())}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* MTBF */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm font-medium">MTBF</span>
+                  <span className="text-sm">{calcularPercentualMTBF().toFixed(1)}% atingido</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div 
+                    className="bg-green-600 h-2.5 rounded-full" 
+                    style={{ width: `${Math.min(100, calcularPercentualMTBF())}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Disponibilidade */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm font-medium">Disponibilidade</span>
+                  <span className="text-sm">{calcularPercentualDisponibilidade().toFixed(1)}% atingido</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div 
+                    className="bg-purple-600 h-2.5 rounded-full" 
+                    style={{ width: `${Math.min(100, calcularPercentualDisponibilidade())}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="text-sm text-gray-700 mb-2">Observações:</div>
+              <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+                {!getMetaAmbiente() && (
+                  <li>Nenhuma meta definida para este ambiente.</li>
+                )}
+                
+                {getMetaAmbiente() && (
+                  <>
+                    {calcularPercentualMTTR() >= 95 && (
+                      <li>MTTR está <span className="font-medium text-green-600">excelente</span>, abaixo da meta estabelecida.</li>
+                    )}
+                    
+                    {calcularPercentualMTTR() < 95 && calcularPercentualMTTR() >= 80 && (
+                      <li>MTTR está <span className="font-medium text-blue-600">bom</span>, próximo à meta estabelecida.</li>
+                    )}
+                    
+                    {calcularPercentualMTTR() < 80 && calcularPercentualMTTR() >= 60 && (
+                      <li>MTTR está <span className="font-medium text-amber-600">regular</span>, acima da meta estabelecida.</li>
+                    )}
+                    
+                    {calcularPercentualMTTR() < 60 && (
+                      <li>MTTR está <span className="font-medium text-red-600">crítico</span>, muito acima da meta estabelecida.</li>
+                    )}
+                    
+                    {calcularPercentualMTBF() >= 95 && (
+                      <li>MTBF está <span className="font-medium text-green-600">excelente</span>, acima da meta estabelecida.</li>
+                    )}
+                    
+                    {calcularPercentualMTBF() < 95 && calcularPercentualMTBF() >= 80 && (
+                      <li>MTBF está <span className="font-medium text-blue-600">bom</span>, próximo à meta estabelecida.</li>
+                    )}
+                    
+                    {calcularPercentualMTBF() < 80 && calcularPercentualMTBF() >= 60 && (
+                      <li>MTBF está <span className="font-medium text-amber-600">regular</span>, abaixo da meta estabelecida.</li>
+                    )}
+                    
+                    {calcularPercentualMTBF() < 60 && (
+                      <li>MTBF está <span className="font-medium text-red-600">crítico</span>, muito abaixo da meta estabelecida.</li>
+                    )}
+                    
+                    {calcularPercentualDisponibilidade() >= 95 && (
+                      <li>Disponibilidade está <span className="font-medium text-green-600">excelente</span>, acima da meta estabelecida.</li>
+                    )}
+                    
+                    {calcularPercentualDisponibilidade() < 95 && calcularPercentualDisponibilidade() >= 80 && (
+                      <li>Disponibilidade está <span className="font-medium text-blue-600">boa</span>, próxima à meta estabelecida.</li>
+                    )}
+                    
+                    {calcularPercentualDisponibilidade() < 80 && calcularPercentualDisponibilidade() >= 60 && (
+                      <li>Disponibilidade está <span className="font-medium text-amber-600">regular</span>, abaixo da meta estabelecida.</li>
+                    )}
+                    
+                    {calcularPercentualDisponibilidade() < 60 && (
+                      <li>Disponibilidade está <span className="font-medium text-red-600">crítica</span>, muito abaixo da meta estabelecida.</li>
+                    )}
+                    
+                    {getMetaAmbiente()?.peso_percentual && getMetaAmbiente()?.peso_percentual > 30 && (
+                      <li>Este ambiente tem <span className="font-medium">{getMetaAmbiente()?.peso_percentual}%</span> de peso na meta global, o que o torna um dos mais importantes.</li>
+                    )}
+                  </>
+                )}
+              </ul>
+            </div>
+          </div>
+        </div>
       ) : (
         /* Visualização de Cards */
         <>

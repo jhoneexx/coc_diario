@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Cloud, BarChart3, Calendar, CheckCircle, Clock, BarChart2, Clock1 } from 'lucide-react';
+import { Cloud, BarChart3, Calendar, CheckCircle, Clock, BarChart2, Clock1, Award } from 'lucide-react';
 import supabase from '../lib/supabase';
 import HeatMapCalendar from '../components/dashboard/HeatMapCalendar';
 import YearHeatMapCalendar from '../components/dashboard/YearHeatMapCalendar';
 import MetricCard from '../components/dashboard/MetricCard';
+import MetaAtingimentoCard from '../components/dashboard/MetaAtingimentoCard';
 import IncidentChart from '../components/dashboard/IncidentChart';
 import IncidentTypeQuantityChart from '../components/dashboard/IncidentTypeQuantityChart';
 import IncidentImpactHoursChart from '../components/dashboard/IncidentImpactHoursChart';
@@ -21,6 +22,7 @@ interface Meta {
   mttr_meta: number;
   mtbf_meta: number;
   disponibilidade_meta: number;
+  peso_percentual: number;
 }
 
 interface Incidente {
@@ -79,7 +81,7 @@ const ClienteDashboard: React.FC = () => {
   const [mapaTipo, setMapaTipo] = useState<'mensal' | 'anual'>('mensal');
   
   // Estado para controlar qual visualização está ativa
-  const [activeView, setActiveView] = useState<'metricas' | 'resumo'>('metricas');
+  const [activeView, setActiveView] = useState<'metricas' | 'resumo' | 'metas'>('metricas');
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -247,6 +249,25 @@ const ClienteDashboard: React.FC = () => {
     return ambiente ? ambiente.nome : '';
   };
 
+  // Calcular percentuais de atingimento de metas
+  const calcularPercentualMTTR = () => {
+    const meta = getMetaAmbiente();
+    if (!meta || !meta.mttr_meta || stats.mttr === 0) return 100;
+    return Math.min(100, 100 * (meta.mttr_meta / stats.mttr));
+  };
+
+  const calcularPercentualMTBF = () => {
+    const meta = getMetaAmbiente();
+    if (!meta || !meta.mtbf_meta || stats.mtbf === 0) return 0;
+    return Math.min(100, 100 * (stats.mtbf / meta.mtbf_meta));
+  };
+
+  const calcularPercentualDisponibilidade = () => {
+    const meta = getMetaAmbiente();
+    if (!meta || !meta.disponibilidade_meta || stats.disponibilidadeMedia === 0) return 0;
+    return Math.min(100, 100 * (stats.disponibilidadeMedia / meta.disponibilidade_meta));
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -264,22 +285,33 @@ const ClienteDashboard: React.FC = () => {
               <div className="inline-flex rounded-md shadow-sm" role="group">
                 <button
                   onClick={() => setActiveView('metricas')}
-                  className={`px-4 py-2 text-sm font-medium border rounded-l-lg ${
+                  className={`px-4 py-2 text-sm font-medium border ${
                     activeView === 'metricas'
                       ? 'bg-white text-primary-700 border-white'
                       : 'bg-primary-700 text-white border-primary-700 hover:bg-primary-800'
-                  }`}
+                  } ${activeView === 'metricas' ? 'rounded-l-lg' : activeView === 'resumo' ? 'border-r-0' : 'rounded-l-lg'}`}
                 >
                   <BarChart2 className="inline-block h-4 w-4 mr-2" />
                   Métricas
                 </button>
                 <button
+                  onClick={() => setActiveView('metas')}
+                  className={`px-4 py-2 text-sm font-medium border ${
+                    activeView === 'metas'
+                      ? 'bg-white text-primary-700 border-white'
+                      : 'bg-primary-700 text-white border-primary-700 hover:bg-primary-800'
+                  } ${activeView === 'resumo' ? 'rounded-r-lg' : 'border-r-0'}`}
+                >
+                  <Award className="inline-block h-4 w-4 mr-2" />
+                  Metas
+                </button>
+                <button
                   onClick={() => setActiveView('resumo')}
-                  className={`px-4 py-2 text-sm font-medium border rounded-r-lg ${
+                  className={`px-4 py-2 text-sm font-medium border ${
                     activeView === 'resumo'
                       ? 'bg-white text-primary-700 border-white'
                       : 'bg-primary-700 text-white border-primary-700 hover:bg-primary-800'
-                  }`}
+                  } ${activeView === 'resumo' ? 'rounded-r-lg' : 'rounded-r-lg'}`}
                 >
                   <Clock1 className="inline-block h-4 w-4 mr-2" />
                   Resumo Executivo
@@ -358,6 +390,116 @@ const ClienteDashboard: React.FC = () => {
             periodo={filtroPeriodo}
             ambiente={getAmbienteNome()}
           />
+        ) : activeView === 'metas' ? (
+          /* Visualização de Atingimento de Metas */
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Atingimento de Metas</h2>
+            
+            <div className="flex items-center mb-6">
+              <span className="text-gray-600 text-sm">
+                {getAmbienteNome() ? `Ambiente: ${getAmbienteNome()}` : 'Todos os ambientes'}
+              </span>
+              <span className="mx-2 text-gray-400">•</span>
+              <span className="text-gray-600 text-sm">
+                Período: {new Date(filtroPeriodo.inicio).toLocaleDateString('pt-BR')} a {new Date(filtroPeriodo.fim).toLocaleDateString('pt-BR')}
+              </span>
+              {getMetaAmbiente()?.peso_percentual && (
+                <>
+                  <span className="mx-2 text-gray-400">•</span>
+                  <span className="text-gray-600 text-sm">
+                    Peso na Meta Global: {getMetaAmbiente()?.peso_percentual}%
+                  </span>
+                </>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              {/* MTTR */}
+              <MetaAtingimentoCard
+                titulo="MTTR (horas)"
+                valor={stats.mttr}
+                meta={getMetaAmbiente()?.mttr_meta}
+                unidade="h"
+                descricao={stats.mttr <= (getMetaAmbiente()?.mttr_meta || 0) ? "Dentro da meta" : "Acima da meta"}
+                pesoPercentual={getMetaAmbiente()?.peso_percentual}
+                menorMelhor={true}
+                icon={<Clock className="h-5 w-5 text-blue-500" />}
+              />
+              
+              {/* MTBF */}
+              <MetaAtingimentoCard
+                titulo="MTBF (dias)"
+                valor={stats.mtbf / 24}
+                meta={getMetaAmbiente()?.mtbf_meta ? getMetaAmbiente()?.mtbf_meta / 24 : undefined}
+                unidade="dias"
+                descricao={stats.mtbf >= (getMetaAmbiente()?.mtbf_meta || 0) ? "Dentro da meta" : "Abaixo da meta"}
+                pesoPercentual={getMetaAmbiente()?.peso_percentual}
+                menorMelhor={false}
+                icon={<Calendar className="h-5 w-5 text-green-500" />}
+              />
+              
+              {/* Disponibilidade */}
+              <MetaAtingimentoCard
+                titulo="Disponibilidade"
+                valor={stats.disponibilidadeMedia}
+                meta={getMetaAmbiente()?.disponibilidade_meta}
+                unidade="%"
+                descricao={stats.disponibilidadeMedia >= (getMetaAmbiente()?.disponibilidade_meta || 0) ? "Dentro da meta" : "Abaixo da meta"}
+                pesoPercentual={getMetaAmbiente()?.peso_percentual}
+                menorMelhor={false}
+                icon={<CheckCircle className="h-5 w-5 text-purple-500" />}
+              />
+            </div>
+            
+            {/* Resumo do atingimento */}
+            <div className="bg-gray-50 p-4 rounded-lg mt-6">
+              <h3 className="text-lg font-medium mb-4">Resumo do Atingimento de Metas</h3>
+              
+              <div className="space-y-4">
+                {/* MTTR */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm font-medium">MTTR</span>
+                    <span className="text-sm">{calcularPercentualMTTR().toFixed(1)}% atingido</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full" 
+                      style={{ width: `${Math.min(100, calcularPercentualMTTR())}%` }}
+                    ></div>
+                  </div>
+                </div>
+                
+                {/* MTBF */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm font-medium">MTBF</span>
+                    <span className="text-sm">{calcularPercentualMTBF().toFixed(1)}% atingido</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-green-600 h-2.5 rounded-full" 
+                      style={{ width: `${Math.min(100, calcularPercentualMTBF())}%` }}
+                    ></div>
+                  </div>
+                </div>
+                
+                {/* Disponibilidade */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm font-medium">Disponibilidade</span>
+                    <span className="text-sm">{calcularPercentualDisponibilidade().toFixed(1)}% atingido</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-purple-600 h-2.5 rounded-full" 
+                      style={{ width: `${Math.min(100, calcularPercentualDisponibilidade())}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : (
           /* Visualização de Métricas */
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
