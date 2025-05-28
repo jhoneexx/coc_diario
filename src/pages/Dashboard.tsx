@@ -7,7 +7,6 @@ import HeatMapCalendar from '../components/dashboard/HeatMapCalendar';
 import YearHeatMapCalendar from '../components/dashboard/YearHeatMapCalendar';
 import MetricCard from '../components/dashboard/MetricCard';
 import MetaAtingimentoCard from '../components/dashboard/MetaAtingimentoCard';
-import IncidentChart from '../components/dashboard/IncidentChart';
 import IncidentList from '../components/dashboard/IncidentList';
 import IncidentTypeQuantityChart from '../components/dashboard/IncidentTypeQuantityChart';
 import IncidentImpactHoursChart from '../components/dashboard/IncidentImpactHoursChart';
@@ -577,30 +576,23 @@ const Dashboard: React.FC = () => {
         </button>
       </div>
       
-      {/* Mapa de Calor e Gráfico */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-lg shadow p-4">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
-            {mapaTipo === 'mensal' ? 'Mapa de Calor Mensal' : 'Mapa de Calor Anual'}
-          </h2>
-          
-          {mapaTipo === 'mensal' ? (
-            <HeatMapCalendar 
-              incidentes={incidentes} 
-              periodo={filtroPeriodo}
-            />
-          ) : (
-            <YearHeatMapCalendar 
-              incidentes={incidentes}
-              ano={new Date().getFullYear()}
-            />
-          )}
-        </div>
+      {/* Mapa de Calor */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">
+          {mapaTipo === 'mensal' ? 'Mapa de Calor Mensal' : 'Mapa de Calor Anual'}
+        </h2>
         
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Distribuição por Tipo</h2>
-          <IncidentChart incidentes={incidentes} />
-        </div>
+        {mapaTipo === 'mensal' ? (
+          <HeatMapCalendar 
+            incidentes={incidentes} 
+            periodo={filtroPeriodo}
+          />
+        ) : (
+          <YearHeatMapCalendar 
+            incidentes={incidentes}
+            ano={new Date().getFullYear()}
+          />
+        )}
       </div>
       
       {/* Gráficos adicionais de quantidade por tipo e horas de impacto */}

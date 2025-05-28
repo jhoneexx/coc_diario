@@ -5,7 +5,6 @@ import HeatMapCalendar from '../components/dashboard/HeatMapCalendar';
 import YearHeatMapCalendar from '../components/dashboard/YearHeatMapCalendar';
 import MetricCard from '../components/dashboard/MetricCard';
 import MetaAtingimentoCard from '../components/dashboard/MetaAtingimentoCard';
-import IncidentChart from '../components/dashboard/IncidentChart';
 import IncidentTypeQuantityChart from '../components/dashboard/IncidentTypeQuantityChart';
 import IncidentImpactHoursChart from '../components/dashboard/IncidentImpactHoursChart';
 import ExecutiveSummary from '../components/dashboard/ExecutiveSummary';
