@@ -127,7 +127,7 @@ const Incidentes: React.FC = () => {
         
         if (isGestor() && !isAdmin()) {
           // Gestor só vê aprovações de operadores
-          query = query.eq('dados_antes->perfil_solicitante', 'operador');
+          query = query.contains('dados_antes', { perfil_solicitante: 'operador' });
         }
         
         const { count, error } = await query;
