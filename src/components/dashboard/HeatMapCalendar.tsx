@@ -1,11 +1,18 @@
 import React, { useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Clock, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Clock } from 'lucide-react';
 
 interface Incidente {
   id: number;
   inicio: string;
   fim: string | null;
+  duracao_minutos: number | null;
+  descricao: string;
+  duracao_minutos: number | null;
+  descricao: string;
   criticidade: { 
     nome: string;
     cor: string;
@@ -27,7 +34,195 @@ interface DayData {
   highestCriticality: string | null;
 }
 
+interface IncidentModalProps {
+  date: Date;
+  incidents: Incidente[];
+  onClose: () => void;
+  onViewIncident: (id: number) => void;
+}
+
+const IncidentModal: React.FC<IncidentModalProps> = ({ date, incidents, onClose, onViewIncident }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-900">
+            Incidentes em {format(date, 'dd/MM/yyyy')}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-500"
+          >
+            <span className="sr-only">Fechar</span>
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <div className="p-4 overflow-y-auto max-h-[70vh]">
+          {incidents.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">
+              Nenhum incidente registrado nesta data.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {incidents.map(incident => (
+                <div 
+                  key={incident.id}
+                  className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      <span className="text-sm font-medium text-gray-900">#{incident.id}</span>
+                      <span 
+                        className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium`}
+                        style={{ 
+                          backgroundColor: `${incident.criticidade.cor}20`,
+                          color: incident.criticidade.cor
+                        }}
+                      >
+                        {incident.criticidade.nome}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {format(new Date(incident.inicio), 'HH:mm')}
+                      {incident.fim && ` - ${format(new Date(incident.fim), 'HH:mm')}`}
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm text-gray-700 mb-2">{incident.descricao}</p>
+                  
+                  <div className="flex justify-between items-center">
+                    {incident.duracao_minutos && (
+                      <div className="flex items-center text-xs text-gray-500">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {incident.duracao_minutos >= 60 
+                          ? `${Math.floor(incident.duracao_minutos / 60)}h ${incident.duracao_minutos % 60}min`
+                          : `${incident.duracao_minutos}min`
+                        }
+                      </div>
+                    )}
+                    
+                    <button
+                      onClick={() => onViewIncident(incident.id)}
+                      className="text-xs text-primary-600 hover:text-primary-800 flex items-center"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Visualizar detalhes
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:text-sm"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface IncidentModalProps {
+  date: Date;
+  incidents: Incidente[];
+  onClose: () => void;
+}
+
+const IncidentModal: React.FC<IncidentModalProps> = ({ date, incidents, onClose }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-900">
+            Incidentes em {format(date, 'dd/MM/yyyy')}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-500"
+          >
+            <span className="sr-only">Fechar</span>
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <div className="p-4 overflow-y-auto max-h-[70vh]">
+          {incidents.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">
+              Nenhum incidente registrado nesta data.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {incidents.map(incident => (
+                <div 
+                  key={incident.id}
+                  className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      <span className="text-sm font-medium text-gray-900">#{incident.id}</span>
+                      <span 
+                        className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium`}
+                        style={{ 
+                          backgroundColor: `${incident.criticidade.cor}20`,
+                          color: incident.criticidade.cor
+                        }}
+                      >
+                        {incident.criticidade.nome}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {format(new Date(incident.inicio), 'HH:mm')}
+                      {incident.fim && ` - ${format(new Date(incident.fim), 'HH:mm')}`}
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm text-gray-700 mb-2">{incident.descricao}</p>
+                  
+                  {incident.duracao_minutos && (
+                    <div className="flex items-center text-xs text-gray-500">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {incident.duracao_minutos >= 60 
+                        ? `${Math.floor(incident.duracao_minutos / 60)}h ${incident.duracao_minutos % 60}min`
+                        : `${incident.duracao_minutos}min`
+                      }
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:text-sm"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const HeatMapCalendar: React.FC<HeatMapProps> = ({ incidentes, periodo }) => {
+  const navigate = useNavigate();
+  const [selectedDay, setSelectedDay] = React.useState<DayData | null>(null);
+  
+  const [selectedDay, setSelectedDay] = React.useState<DayData | null>(null);
+  
   // Configurar mês atual para o calendário
   const monthStart = new Date(periodo.inicio);
   const monthEnd = new Date(periodo.fim);
@@ -158,6 +353,23 @@ const HeatMapCalendar: React.FC<HeatMapProps> = ({ incidentes, periodo }) => {
     return colorMap[color] || 'criticality-none';
   };
 
+  // Handler para clicar em um dia
+  const handleDayClick = (day: DayData) => {
+    if (day.date.getTime() > 0) { // Verifica se é um dia válido
+      setSelectedDay(day);
+    }
+  };
+  
+  // Handler para visualizar detalhes de um incidente
+  const handleViewIncident = (id: number) => {
+    navigate(`/incidentes/editar/${id}`);
+  };
+
+  // Handler para clicar em um dia
+  const handleDayClick = (day: DayData) => {
+    setSelectedDay(day);
+  };
+
   return (
     <div className="overflow-hidden">
       <div className="text-center mb-4">
@@ -189,15 +401,18 @@ const HeatMapCalendar: React.FC<HeatMapProps> = ({ incidentes, periodo }) => {
                 className={`
                   relative rounded-md p-2 h-14 
                   heatmap-cell
-                  ${isValidDay ? getCriticalityClass(day.highestCriticality) : 'bg-gray-50'}
+                  ${isValidDay ? getCriticalityClass(day.highestCriticality) : 'bg-gray-50'} 
                   ${isToday(day.date) ? 'ring-2 ring-blue-400' : ''}
-                  ${!isValidDay ? 'opacity-0 pointer-events-none' : ''}
+                  ${!isValidDay ? 'opacity-0 pointer-events-none' : 'cursor-pointer'}
+                  ${isValidDay ? 'cursor-pointer' : ''}
                 `}
                 title={day.incidents.length > 0 ? 
                   `${format(day.date, 'dd/MM/yyyy')}
 Incidentes: ${day.incidents.map(inc => `#${inc.id}`).join(', ')}` : 
                   format(day.date, 'dd/MM/yyyy')
                 }
+                onClick={() => handleDayClick(day)}
+                onClick={isValidDay ? () => handleDayClick(day) : undefined}
               >
                 <div className="absolute top-1 left-1 text-xs font-semibold">
                   {isValidDay ? format(day.date, 'd') : ''}
@@ -247,6 +462,25 @@ Incidentes: ${day.incidents.map(inc => `#${inc.id}`).join(', ')}` :
           <span className="text-xs">Sem Incidentes</span>
         </div>
       </div>
+      
+      {/* Modal de detalhes de incidentes */}
+      {selectedDay && (
+        <IncidentModal 
+          date={selectedDay.date}
+          incidents={selectedDay.incidents}
+          onClose={() => setSelectedDay(null)}
+          onViewIncident={handleViewIncident}
+        />
+      )}
+      
+      {/* Modal de detalhes de incidentes */}
+      {selectedDay && (
+        <IncidentModal 
+          date={selectedDay.date}
+          incidents={selectedDay.incidents}
+          onClose={() => setSelectedDay(null)}
+        />
+      )}
     </div>
   );
 };
