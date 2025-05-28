@@ -75,6 +75,8 @@ const Relatorios: React.FC = () => {
   const [incidentes, setIncidentes] = useState<Incidente[]>([]);
   const [metas, setMetas] = useState<Meta[]>([]);
   const [metricas, setMetricas] = useState<MetricsData[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
   
   // Filtros
   const [filtroAmbiente, setFiltroAmbiente] = useState<number | null>(null);
@@ -475,9 +477,6 @@ const Relatorios: React.FC = () => {
   
   // Exportar para PDF
   const handleExportPDF = () => {
-    const [exportProgress, setExportProgress] = useState(0);
-    const [isExporting, setIsExporting] = useState(false);
-
     try {
       setIsExporting(true);
       setExportProgress(0);
@@ -715,6 +714,7 @@ const Relatorios: React.FC = () => {
                               </td>
                               <td className={`px-6 py-4 whitespace-nowrap text-sm ${
                                 metrica.meta_mtbf && (metrica.mtbf / 24) >= (metrica.meta_mtbf / 24)
+                                  
                                   ? 'text-green-600 font-medium'
                                   : 'text-red-600 font-medium'
                               }`}>
