@@ -198,11 +198,12 @@ export const exportReportToExcel = (options: ExportOptions) => {
 
 // Função para exportar relatório para PDF
 export const exportReportToPDF = async (options: PDFExportOptions) => {
-  const { incidentes, metricas, filtroPeriodo, ambienteFiltrado, sections = [], onProgress } = options;
+  const { incidentes, metricas, filtroPeriodo, ambienteFiltrado, onProgress } = options;
   
   // Criar documento PDF
   const doc = new jsPDF();
   let currentPage = 1;
+  let totalPages = 8; // Capa + Índice + 6 seções
   
   // Configurar fonte padrão
   doc.setFont('helvetica');
@@ -284,6 +285,7 @@ export const exportReportToPDF = async (options: PDFExportOptions) => {
   
   // Índice
   addPageBreak();
+  addHeaderFooter(currentPage, totalPages, 'Índice');
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
   doc.text('Índice', 14, 30);
@@ -309,9 +311,374 @@ export const exportReportToPDF = async (options: PDFExportOptions) => {
   
   // Seção 1: Métricas de Performance
   addPageBreak();
-  addHeaderFooter(currentPage, reportSections.length + 2, '1. Métricas de Performance');
+  addHeaderFooter(currentPage, totalPages, '1. Métricas de Performance');
   
-  // ... (rest of the implementation for each section)
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Métricas de Performance e Disponibilidade', 14, 30);
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Período: ${new Date(filtroPeriodo.inicio).toLocaleDateString('pt-BR')} a ${new Date(filtroPeriodo.fim).toLocaleDateString('pt-BR')}`, 14, 40);
+  doc.text(`Ambiente: ${ambienteFiltrado}`, 14, 45);
+  
+  // Tabela de métricas
+  const metricasTableData = metricas.map(m => [
+    m.ambiente_nome,
+    m.incidentes_total.toString(),
+    m.incidentes_criticos.toString(),
+    m.mttr.toFixed(2),
+    m.meta_mttr ? m.meta_mttr.toFixed(2) : '-',
+    (m.mtbf / 24).toFixed(2),
+    m.meta_mtbf ? (m.meta_mtbf / 24).toFixed(2) : '-',
+    m.disponibilidade.toFixed(3) + '%',
+    m.meta_disponibilidade ? m.meta_disponibilidade.toFixed(3) + '%' : '-'
+  ]);
+  
+  // @ts-ignore - jspdf-autotable extension
+  doc.autoTable({
+    startY: 50,
+    head: [['Ambiente', 'Inc.', 'Crít.', 'MTTR (h)', 'Meta MTTR', 'MTBF (dias)', 'Meta MTBF', 'Disp. (%)', 'Meta Disp.']],
+    body: metricasTableData,
+    headStyles: { fillColor: [37, 99, 235] },
+    alternateRowStyles: { fillColor: [240, 245, 255] },
+    styles: { fontSize: 8 }
+  });
+  
+  updateProgress(30);
+  
+  // Seção 2: Análise por Tipo de Incidente
+  addPageBreak();
+  addHeaderFooter(currentPage, totalPages, '2. Análise por Tipo de Incidente');
+  
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Análise por Tipo de Incidente', 14, 30);
+  
+  // Agrupar por tipo
+  const tiposMap = new Map<string, { 
+    count: number; 
+    countCritical: number; 
+    hours: number; 
+    downtimeHours: number;
+  }>();
+  
+  incidentes.forEach(inc => {
+    const tipoNome = inc.tipo.nome;
+    const isCritical = inc.criticidade.is_downtime;
+    const horas = inc.duracao_minutos ? inc.duracao_minutos / 60 : 0;
+    
+    if (!tiposMap.has(tipoNome)) {
+      tiposMap.set(tipoNome, { 
+        count: 0, 
+        countCritical: 0, 
+        hours: 0, 
+        downtimeHours: 0 
+      });
+    }
+    
+    const tipoData = tiposMap.get(tipoNome)!;
+    tipoData.count++;
+    
+    if (isCritical) {
+      tipoData.countCritical++;
+    }
+    
+    if (inc.duracao_minutos) {
+      tipoData.hours += horas;
+      
+      if (isCritical) {
+        tipoData.downtimeHours += horas;
+      }
+    }
+  });
+  
+  // Converter para arrays e ordenar por quantidade
+  const tiposData = Array.from(tiposMap.entries())
+    .map(([tipo, data]) => [
+      tipo,
+      data.count.toString(),
+      data.countCritical.toString(),
+      data.hours.toFixed(2),
+      data.downtimeHours.toFixed(2)
+    ])
+    .sort((a, b) => parseInt(b[1] as string) - parseInt(a[1] as string));
+  
+  // @ts-ignore - jspdf-autotable extension
+  doc.autoTable({
+    startY: 40,
+    head: [['Tipo de Incidente', 'Quantidade', 'Críticos', 'Horas Totais', 'Horas de Downtime']],
+    body: tiposData,
+    headStyles: { fillColor: [37, 99, 235] },
+    alternateRowStyles: { fillColor: [240, 245, 255] }
+  });
+  
+  // Adicionar gráfico de pizza (representação textual)
+  // @ts-ignore - Current y position after previous table
+  const tiposY = doc.lastAutoTable.finalY + 15;
+  
+  doc.setFontSize(14);
+  doc.text('Distribuição por Tipo de Incidente', 14, tiposY);
+  
+  // Tabela de distribuição percentual
+  const totalIncidentes = incidentes.length;
+  const distribuicaoData = tiposData.map(row => {
+    const tipo = row[0] as string;
+    const quantidade = parseInt(row[1] as string);
+    const percentual = totalIncidentes > 0 ? (quantidade / totalIncidentes * 100).toFixed(1) + '%' : '0%';
+    return [tipo, quantidade.toString(), percentual];
+  });
+  
+  // @ts-ignore - jspdf-autotable extension
+  doc.autoTable({
+    startY: tiposY + 10,
+    head: [['Tipo de Incidente', 'Quantidade', 'Percentual']],
+    body: distribuicaoData,
+    headStyles: { fillColor: [37, 99, 235] },
+    alternateRowStyles: { fillColor: [240, 245, 255] }
+  });
+  
+  updateProgress(40);
+  
+  // Seção 3: Tendência de Incidentes
+  addPageBreak();
+  addHeaderFooter(currentPage, totalPages, '3. Tendência de Incidentes');
+  
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Tendência de Incidentes ao Longo do Tempo', 14, 30);
+  
+  // Agrupar incidentes por mês
+  const incidentesPorMes: Record<string, { total: number, criticos: number }> = {};
+  
+  // Preencher todos os meses do intervalo
+  const inicio = new Date(filtroPeriodo.inicio);
+  const fim = new Date(filtroPeriodo.fim);
+  
+  for (let d = new Date(inicio.getFullYear(), inicio.getMonth(), 1); 
+       d <= new Date(fim.getFullYear(), fim.getMonth() + 1, 0); 
+       d.setMonth(d.getMonth() + 1)) {
+    const mesStr = d.toISOString().slice(0, 7); // YYYY-MM
+    incidentesPorMes[mesStr] = { total: 0, criticos: 0 };
+  }
+  
+  // Contar incidentes por mês
+  incidentes.forEach(inc => {
+    const mesStr = inc.inicio.slice(0, 7); // YYYY-MM
+    if (incidentesPorMes[mesStr]) {
+      incidentesPorMes[mesStr].total++;
+      if (inc.criticidade.is_downtime) {
+        incidentesPorMes[mesStr].criticos++;
+      }
+    }
+  });
+  
+  // Converter para array para a tabela
+  const tendenciaData = Object.entries(incidentesPorMes).map(([mes, dados]) => {
+    const [ano, mesNum] = mes.split('-');
+    const mesNome = new Date(parseInt(ano), parseInt(mesNum) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return [mesNome, dados.total.toString(), dados.criticos.toString()];
+  });
+  
+  // @ts-ignore - jspdf-autotable extension
+  doc.autoTable({
+    startY: 40,
+    head: [['Mês', 'Total de Incidentes', 'Incidentes Críticos']],
+    body: tendenciaData,
+    headStyles: { fillColor: [37, 99, 235] },
+    alternateRowStyles: { fillColor: [240, 245, 255] }
+  });
+  
+  // Adicionar descrição da tendência
+  // @ts-ignore - Current y position after previous table
+  const tendenciaDescY = doc.lastAutoTable.finalY + 15;
+  
+  doc.setFontSize(12);
+  doc.text('Análise de Tendência:', 14, tendenciaDescY);
+  
+  // Calcular tendência (aumento ou diminuição)
+  const meses = Object.keys(incidentesPorMes).sort();
+  if (meses.length >= 2) {
+    const primeiro = incidentesPorMes[meses[0]].total;
+    const ultimo = incidentesPorMes[meses[meses.length - 1]].total;
+    const diferenca = ultimo - primeiro;
+    
+    doc.setFontSize(10);
+    if (diferenca > 0) {
+      doc.text(`• Aumento de ${diferenca} incidentes entre ${meses[0]} e ${meses[meses.length - 1]}`, 20, tendenciaDescY + 10);
+    } else if (diferenca < 0) {
+      doc.text(`• Redução de ${Math.abs(diferenca)} incidentes entre ${meses[0]} e ${meses[meses.length - 1]}`, 20, tendenciaDescY + 10);
+    } else {
+      doc.text(`• Estabilidade no número de incidentes entre ${meses[0]} e ${meses[meses.length - 1]}`, 20, tendenciaDescY + 10);
+    }
+  }
+  
+  updateProgress(50);
+  
+  // Seção 4: Análise de Impacto
+  addPageBreak();
+  addHeaderFooter(currentPage, totalPages, '4. Análise de Impacto');
+  
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Análise de Impacto', 14, 30);
+  
+  // Tabela de impacto por ambiente
+  const impactoData = metricas.map(m => [
+    m.ambiente_nome,
+    m.incidentes_total.toString(),
+    m.incidentes_criticos.toString(),
+    m.incidentes_total > 0 ? ((m.incidentes_criticos / m.incidentes_total) * 100).toFixed(1) + '%' : '0%',
+    m.disponibilidade.toFixed(3) + '%'
+  ]);
+  
+  // @ts-ignore - jspdf-autotable extension
+  doc.autoTable({
+    startY: 40,
+    head: [['Ambiente', 'Total Incidentes', 'Incidentes Críticos', '% de Criticidade', 'Disponibilidade']],
+    body: impactoData,
+    headStyles: { fillColor: [37, 99, 235] },
+    alternateRowStyles: { fillColor: [240, 245, 255] }
+  });
+  
+  // Horas de impacto por tipo
+  // @ts-ignore - Current y position after previous table
+  const impactoHorasY = doc.lastAutoTable.finalY + 15;
+  
+  doc.setFontSize(14);
+  doc.text('Horas de Impacto por Tipo de Incidente', 14, impactoHorasY);
+  
+  // Calcular horas de impacto por tipo
+  const horasPorTipo: Record<string, { total: number, downtime: number }> = {};
+  
+  incidentes.forEach(inc => {
+    if (inc.duracao_minutos) {
+      const tipo = inc.tipo.nome;
+      const horas = inc.duracao_minutos / 60;
+      
+      if (!horasPorTipo[tipo]) {
+        horasPorTipo[tipo] = { total: 0, downtime: 0 };
+      }
+      
+      horasPorTipo[tipo].total += horas;
+      
+      if (inc.criticidade.is_downtime) {
+        horasPorTipo[tipo].downtime += horas;
+      }
+    }
+  });
+  
+  // Converter para array e ordenar por horas totais
+  const horasData = Object.entries(horasPorTipo)
+    .map(([tipo, horas]) => [
+      tipo,
+      horas.total.toFixed(2),
+      horas.downtime.toFixed(2)
+    ])
+    .sort((a, b) => parseFloat(b[1] as string) - parseFloat(a[1] as string));
+  
+  // @ts-ignore - jspdf-autotable extension
+  doc.autoTable({
+    startY: impactoHorasY + 10,
+    head: [['Tipo de Incidente', 'Horas Totais', 'Horas de Downtime']],
+    body: horasData,
+    headStyles: { fillColor: [37, 99, 235] },
+    alternateRowStyles: { fillColor: [240, 245, 255] }
+  });
+  
+  updateProgress(60);
+  
+  // Seção 5: Atingimento de Metas
+  addPageBreak();
+  addHeaderFooter(currentPage, totalPages, '5. Atingimento de Metas');
+  
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Atingimento de Metas', 14, 30);
+  
+  // Calcular atingimento de metas por ambiente
+  const metasData = metricas
+    .filter(m => m.meta_mttr !== null || m.meta_mtbf !== null || m.meta_disponibilidade !== null)
+    .map(m => {
+      // Calcular percentuais de atingimento
+      const mttrPercentual = m.meta_mttr && m.mttr > 0 ? Math.min(100, 100 * (m.meta_mttr / m.mttr)) : 0;
+      const mtbfPercentual = m.meta_mtbf && m.mtbf > 0 ? Math.min(100, 100 * (m.mtbf / m.meta_mtbf)) : 0;
+      const dispPercentual = m.meta_disponibilidade ? Math.min(100, 100 * (m.disponibilidade / m.meta_disponibilidade)) : 0;
+      
+      return [
+        m.ambiente_nome,
+        m.mttr.toFixed(2),
+        m.meta_mttr ? m.meta_mttr.toFixed(2) : '-',
+        mttrPercentual.toFixed(1) + '%',
+        (m.mtbf / 24).toFixed(2),
+        m.meta_mtbf ? (m.meta_mtbf / 24).toFixed(2) : '-',
+        mtbfPercentual.toFixed(1) + '%',
+        m.disponibilidade.toFixed(3) + '%',
+        m.meta_disponibilidade ? m.meta_disponibilidade.toFixed(3) + '%' : '-',
+        dispPercentual.toFixed(1) + '%'
+      ];
+    });
+  
+  if (metasData.length > 0) {
+    // @ts-ignore - jspdf-autotable extension
+    doc.autoTable({
+      startY: 40,
+      head: [['Ambiente', 'MTTR', 'Meta', 'Ating.', 'MTBF (dias)', 'Meta', 'Ating.', 'Disp. (%)', 'Meta', 'Ating.']],
+      body: metasData,
+      headStyles: { fillColor: [37, 99, 235] },
+      alternateRowStyles: { fillColor: [240, 245, 255] },
+      styles: { fontSize: 8 }
+    });
+  } else {
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Não há metas configuradas para os ambientes selecionados.', 14, 50);
+  }
+  
+  updateProgress(80);
+  
+  // Seção 6: Detalhamento de Incidentes
+  addPageBreak();
+  addHeaderFooter(currentPage, totalPages, '6. Detalhamento de Incidentes');
+  
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Detalhamento de Incidentes', 14, 30);
+  
+  // Limitar a 20 incidentes para não ficar muito grande
+  const incidentesDetalhados = incidentes.slice(0, 20);
+  
+  const incidentesDetalhadosData = incidentesDetalhados.map(inc => [
+    inc.id.toString(),
+    new Date(inc.inicio).toLocaleDateString('pt-BR'),
+    inc.ambiente.nome,
+    inc.segmento.nome,
+    inc.tipo.nome,
+    inc.criticidade.nome,
+    inc.duracao_minutos ? (inc.duracao_minutos / 60).toFixed(2) + 'h' : '-',
+    inc.fim ? 'Resolvido' : 'Em andamento'
+  ]);
+  
+  // @ts-ignore - jspdf-autotable extension
+  doc.autoTable({
+    startY: 40,
+    head: [['ID', 'Data', 'Ambiente', 'Segmento', 'Tipo', 'Criticidade', 'Duração', 'Status']],
+    body: incidentesDetalhadosData,
+    headStyles: { fillColor: [37, 99, 235] },
+    alternateRowStyles: { fillColor: [240, 245, 255] },
+    styles: { fontSize: 8 }
+  });
+  
+  // Se houver mais incidentes do que os mostrados
+  if (incidentes.length > incidentesDetalhados.length) {
+    // @ts-ignore - Current y position after previous table
+    const notaY = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`* Exibindo ${incidentesDetalhados.length} de ${incidentes.length} incidentes. Exporte para Excel para ver todos.`, 14, notaY);
+  }
+  
+  updateProgress(95);
   
   // Finalizar e salvar
   updateProgress(100);
