@@ -198,7 +198,7 @@ export const exportReportToExcel = (options: ExportOptions) => {
 
 // Função para exportar relatório para PDF
 export const exportReportToPDF = async (options: PDFExportOptions) => {
-  const { incidentes, metricas, filtroPeriodo, ambienteFiltrado, sections, onProgress } = options;
+  const { incidentes, metricas, filtroPeriodo, ambienteFiltrado, sections = [], onProgress } = options;
   
   // Criar documento PDF
   const doc = new jsPDF();
@@ -291,7 +291,7 @@ export const exportReportToPDF = async (options: PDFExportOptions) => {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(12);
   let currentY = 50;
-  const sections = [
+  const reportSections = [
     'Métricas de Performance',
     'Análise por Tipo de Incidente',
     'Tendência de Incidentes',
@@ -300,7 +300,7 @@ export const exportReportToPDF = async (options: PDFExportOptions) => {
     'Detalhamento de Incidentes'
   ];
   
-  sections.forEach((section, index) => {
+  reportSections.forEach((section, index) => {
     doc.text(`${index + 1}. ${section}`, 30, currentY);
     currentY += 15;
   });
@@ -309,7 +309,7 @@ export const exportReportToPDF = async (options: PDFExportOptions) => {
   
   // Seção 1: Métricas de Performance
   addPageBreak();
-  addHeaderFooter(currentPage, sections.length + 2, '1. Métricas de Performance');
+  addHeaderFooter(currentPage, reportSections.length + 2, '1. Métricas de Performance');
   
   // ... (rest of the implementation for each section)
   
