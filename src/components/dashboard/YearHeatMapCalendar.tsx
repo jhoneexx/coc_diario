@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { format, eachMonthOfInterval, eachDayOfInterval, isToday, isSameMonth, getMonth, getYear, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Clock } from 'lucide-react';
+import { Clock, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface Incidente {
   id: number;
@@ -36,9 +37,10 @@ interface IncidentModalProps {
   date: Date;
   incidents: Incidente[];
   onClose: () => void;
+  onViewIncident: (id: number) => void;
 }
 
-const IncidentModal: React.FC<IncidentModalProps> = ({ date, incidents, onClose }) => {
+const IncidentModal: React.FC<IncidentModalProps> = ({ date, incidents, onClose, onViewIncident }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
@@ -90,15 +92,25 @@ const IncidentModal: React.FC<IncidentModalProps> = ({ date, incidents, onClose 
                   
                   <p className="text-sm text-gray-700 mb-2">{incident.descricao}</p>
                   
-                  {incident.duracao_minutos && (
-                    <div className="flex items-center text-xs text-gray-500">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {incident.duracao_minutos >= 60 
-                        ? `${Math.floor(incident.duracao_minutos / 60)}h ${incident.duracao_minutos % 60}min`
-                        : `${incident.duracao_minutos}min`
-                      }
-                    </div>
-                  )}
+                  <div className="flex justify-between items-center">
+                    {incident.duracao_minutos && (
+                      <div className="flex items-center text-xs text-gray-500">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {incident.duracao_minutos >= 60 
+                          ? `${Math.floor(incident.duracao_minutos / 60)}h ${incident.duracao_minutos % 60}min`
+                          : `${incident.duracao_minutos}min`
+                        }
+                      </div>
+                    )}
+                    
+                    <button
+                      onClick={() => onViewIncident(incident.id)}
+                      className="text-xs text-primary-600 hover:text-primary-800 flex items-center"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Visualizar detalhes
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -119,6 +131,7 @@ const IncidentModal: React.FC<IncidentModalProps> = ({ date, incidents, onClose 
 };
 
 const YearHeatMapCalendar: React.FC<YearHeatMapProps> = ({ incidentes, ano }) => {
+  const navigate = useNavigate();
   const [selectedDay, setSelectedDay] = React.useState<DayData | null>(null);
   
   // Usar o ano fornecido ou o ano atual
@@ -229,7 +242,14 @@ const YearHeatMapCalendar: React.FC<YearHeatMapProps> = ({ incidentes, ano }) =>
 
   // Handler para clicar em um dia
   const handleDayClick = (day: DayData) => {
-    setSelectedDay(day);
+    if (day.date.getTime() > 0) { // Verifica se é um dia válido
+      setSelectedDay(day);
+    }
+  };
+  
+  // Handler para visualizar detalhes de um incidente
+  const handleViewIncident = (id: number) => {
+    navigate(`/incidentes/editar/${id}`);
   };
 
   return (
@@ -272,16 +292,14 @@ const YearHeatMapCalendar: React.FC<YearHeatMapProps> = ({ incidentes, ano }) =>
                 <div
                   key={day.date.getDate()}
                   className={`
-                    relative rounded-sm p-1 h-6 w-6
+                    relative rounded-sm p-1 h-6 w-6 cursor-pointer
                     ${getCriticalityClass(day.highestCriticality)}
-                    ${isToday(day.date) ? 'ring-1 ring-blue-400' : ''} 
-                    cursor-pointer
+                    ${isToday(day.date) ? 'ring-1 ring-blue-400' : ''}
                   `}
                   title={day.incidents.length > 0 ? 
                     `${format(day.date, 'dd/MM/yyyy')}
 Incidentes: ${day.incidents.map(inc => `#${inc.id}`).join(', ')}` : 
-                    format(day.date, 'dd/MM/yyyy')
-                  }
+                    format(day.date, 'dd/MM/yyyy')}
                   onClick={() => handleDayClick(day)}
                 >
                   <div className="text-[0.65rem] font-medium">
@@ -340,6 +358,7 @@ Incidentes: ${day.incidents.map(inc => `#${inc.id}`).join(', ')}` :
           date={selectedDay.date}
           incidents={selectedDay.incidents}
           onClose={() => setSelectedDay(null)}
+          onViewIncident={handleViewIncident}
         />
       )}
     </div>
