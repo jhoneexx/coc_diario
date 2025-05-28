@@ -475,21 +475,33 @@ const Relatorios: React.FC = () => {
   
   // Exportar para PDF
   const handleExportPDF = () => {
+    const [exportProgress, setExportProgress] = useState(0);
+    const [isExporting, setIsExporting] = useState(false);
+
     try {
+      setIsExporting(true);
+      setExportProgress(0);
+
       exportReportToPDF({
         incidentes,
         metricas,
         filtroPeriodo,
         filtroAmbiente,
-        ambienteFiltrado: filtroAmbiente 
-          ? ambientes.find(a => a.id === filtroAmbiente)?.nome || 'Ambiente Selecionado'
-          : 'Todos'
+        ambienteFiltrado: filtroAmbiente
+          ? ambientes.find(a => a.id === filtroAmbiente)?.nome || 'Ambiente Selecionado' 
+          : 'Todos',
+        onProgress: (progress) => {
+          setExportProgress(progress);
+        }
       });
       
       toast.success('Relatório PDF gerado com sucesso!');
     } catch (error) {
       console.error('Erro ao exportar relatório PDF:', error);
       toast.error('Erro ao exportar relatório para PDF');
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
     }
   };
 
@@ -516,10 +528,10 @@ const Relatorios: React.FC = () => {
           <button
             onClick={handleExportPDF}
             className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            disabled={loading || incidentes.length === 0}
+            disabled={loading || incidentes.length === 0 || isExporting}
           >
             <FileText className="mr-2 h-4 w-4" />
-            Exportar PDF
+            {isExporting ? `Exportando (${exportProgress}%)` : 'Exportar PDF'}
           </button>
         </div>
       </div>
