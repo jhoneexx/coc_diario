@@ -181,8 +181,10 @@ const YearHeatMapCalendar: React.FC<YearHeatMapProps> = ({ incidentes, ano }) =>
                     ${isToday(day.date) ? 'ring-1 ring-blue-400' : ''}
                   `}
                   title={day.incidents.length > 0 ? 
-                    `${format(day.date, 'dd/MM/yyyy')} - ${day.incidents.length} incidente(s)` : 
-                    format(day.date, 'dd/MM/yyyy')}
+                    `${format(day.date, 'dd/MM/yyyy')}
+Incidentes: ${day.incidents.map(inc => `#${inc.id}`).join(', ')}` : 
+                    format(day.date, 'dd/MM/yyyy')
+                  }
                 >
                   <div className="text-[0.65rem] font-medium">
                     {day.date.getDate()}

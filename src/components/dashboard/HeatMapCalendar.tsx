@@ -193,6 +193,11 @@ const HeatMapCalendar: React.FC<HeatMapProps> = ({ incidentes, periodo }) => {
                   ${isToday(day.date) ? 'ring-2 ring-blue-400' : ''}
                   ${!isValidDay ? 'opacity-0 pointer-events-none' : ''}
                 `}
+                title={day.incidents.length > 0 ? 
+                  `${format(day.date, 'dd/MM/yyyy')}
+Incidentes: ${day.incidents.map(inc => `#${inc.id}`).join(', ')}` : 
+                  format(day.date, 'dd/MM/yyyy')
+                }
               >
                 <div className="absolute top-1 left-1 text-xs font-semibold">
                   {isValidDay ? format(day.date, 'd') : ''}
