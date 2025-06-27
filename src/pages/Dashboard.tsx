@@ -263,7 +263,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Dashboard Operacional</h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -271,49 +271,50 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
         
-        <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <div className="inline-flex rounded-md shadow-sm" role="group">
             <button
               onClick={() => setActiveView('cards')}
-              className={`px-4 py-2 text-sm font-medium border ${
+              className={`px-3 lg:px-4 py-2 text-xs lg:text-sm font-medium border ${
                 activeView === 'cards'
                   ? 'bg-primary-600 text-white border-primary-600'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              } ${activeView === 'cards' ? 'rounded-l-lg' : activeView === 'resumo' ? 'border-r-0' : 'rounded-l-lg'}`}
+              } rounded-l-lg`}
             >
-              <BarChart2 className="inline-block h-4 w-4 mr-2" />
-              Métricas
+              <BarChart2 className="inline-block h-4 w-4 mr-1 lg:mr-2" />
+              <span className="hidden sm:inline">Métricas</span>
             </button>
             <button
               onClick={() => setActiveView('metas')}
-              className={`px-4 py-2 text-sm font-medium border ${
+              className={`px-3 lg:px-4 py-2 text-xs lg:text-sm font-medium border-t border-b ${
                 activeView === 'metas'
                   ? 'bg-primary-600 text-white border-primary-600'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              } ${activeView === 'resumo' ? 'rounded-r-lg' : 'border-r-0'}`}
+              }`}
             >
-              <Award className="inline-block h-4 w-4 mr-2" />
-              Metas
+              <Award className="inline-block h-4 w-4 mr-1 lg:mr-2" />
+              <span className="hidden sm:inline">Metas</span>
             </button>
             <button
               onClick={() => setActiveView('resumo')}
-              className={`px-4 py-2 text-sm font-medium border ${
+              className={`px-3 lg:px-4 py-2 text-xs lg:text-sm font-medium border ${
                 activeView === 'resumo'
                   ? 'bg-primary-600 text-white border-primary-600'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              } ${activeView === 'resumo' ? 'rounded-r-lg' : 'rounded-r-lg'}`}
+              } rounded-r-lg`}
             >
-              <Clock1 className="inline-block h-4 w-4 mr-2" />
-              Resumo Executivo
+              <Clock1 className="inline-block h-4 w-4 mr-1 lg:mr-2" />
+              <span className="hidden sm:inline">Resumo</span>
             </button>
           </div>
           
           <button 
             onClick={handleNovoIncidente}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           >
             <Plus className="mr-2 h-4 w-4" />
-            Registrar Incidente
+            <span className="hidden sm:inline">Registrar Incidente</span>
+            <span className="sm:hidden">Novo</span>
           </button>
         </div>
       </div>
@@ -337,28 +338,28 @@ const Dashboard: React.FC = () => {
         />
       ) : activeView === 'metas' ? (
         /* Visualização de Atingimento de Metas */
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-4 lg:p-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Atingimento de Metas</h2>
           
-          <div className="flex items-center mb-6">
-            <span className="text-gray-600 text-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center mb-6 gap-2 text-sm">
+            <span className="text-gray-600">
               {ambiente ? `Ambiente: ${getAmbienteNome()}` : 'Todos os ambientes'}
             </span>
-            <span className="mx-2 text-gray-400">•</span>
-            <span className="text-gray-600 text-sm">
+            <span className="hidden lg:inline mx-2 text-gray-400">•</span>
+            <span className="text-gray-600">
               Período: {new Date(filtroPeriodo.inicio).toLocaleDateString('pt-BR')} a {new Date(filtroPeriodo.fim).toLocaleDateString('pt-BR')}
             </span>
             {getMetaAmbiente()?.peso_percentual && (
               <>
-                <span className="mx-2 text-gray-400">•</span>
-                <span className="text-gray-600 text-sm">
+                <span className="hidden lg:inline mx-2 text-gray-400">•</span>
+                <span className="text-gray-600">
                   Peso na Meta Global: {getMetaAmbiente()?.peso_percentual}%
                 </span>
               </>
             )}
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
             {/* MTTR */}
             <MetaAtingimentoCard
               titulo="MTTR (horas)"
@@ -399,7 +400,7 @@ const Dashboard: React.FC = () => {
             />
           </div>
           
-          {/* Resumo do atingimento */}
+          {/* Resumo do atingimento - responsivo */}
           <div className="bg-gray-50 p-4 rounded-lg mt-6">
             <h3 className="text-lg font-medium mb-4">Resumo do Atingimento de Metas</h3>
             
@@ -417,7 +418,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div 
-                    className="bg-blue-600 h-2.5 rounded-full" 
+                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
                     style={{ width: `${Math.min(100, calcularPercentualMTTR())}%` }}
                   ></div>
                 </div>
@@ -436,7 +437,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div 
-                    className="bg-green-600 h-2.5 rounded-full" 
+                    className="bg-green-600 h-2.5 rounded-full transition-all duration-300" 
                     style={{ width: `${Math.min(100, calcularPercentualMTBF())}%` }}
                   ></div>
                 </div>
@@ -450,84 +451,19 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div 
-                    className="bg-purple-600 h-2.5 rounded-full" 
+                    className="bg-purple-600 h-2.5 rounded-full transition-all duration-300" 
                     style={{ width: `${Math.min(100, calcularPercentualDisponibilidade())}%` }}
                   ></div>
                 </div>
               </div>
-            </div>
-            
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <div className="text-sm text-gray-700 mb-2">Observações:</div>
-              <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
-                {!getMetaAmbiente() && (
-                  <li>Nenhuma meta definida para este ambiente.</li>
-                )}
-                
-                {getMetaAmbiente() && (
-                  <>
-                    {calcularPercentualMTTR() >= 95 && (
-                      <li>MTTR está <span className="font-medium text-green-600">excelente</span>, abaixo da meta estabelecida.</li>
-                    )}
-                    
-                    {calcularPercentualMTTR() < 95 && calcularPercentualMTTR() >= 80 && (
-                      <li>MTTR está <span className="font-medium text-blue-600">bom</span>, próximo à meta estabelecida.</li>
-                    )}
-                    
-                    {calcularPercentualMTTR() < 80 && calcularPercentualMTTR() >= 60 && (
-                      <li>MTTR está <span className="font-medium text-amber-600">regular</span>, acima da meta estabelecida.</li>
-                    )}
-                    
-                    {calcularPercentualMTTR() < 60 && (
-                      <li>MTTR está <span className="font-medium text-red-600">crítico</span>, muito acima da meta estabelecida.</li>
-                    )}
-                    
-                    {calcularPercentualMTBF() >= 95 && (
-                      <li>MTBF está <span className="font-medium text-green-600">excelente</span>, acima da meta estabelecida.</li>
-                    )}
-                    
-                    {calcularPercentualMTBF() < 95 && calcularPercentualMTBF() >= 80 && (
-                      <li>MTBF está <span className="font-medium text-blue-600">bom</span>, próximo à meta estabelecida.</li>
-                    )}
-                    
-                    {calcularPercentualMTBF() < 80 && calcularPercentualMTBF() >= 60 && (
-                      <li>MTBF está <span className="font-medium text-amber-600">regular</span>, abaixo da meta estabelecida.</li>
-                    )}
-                    
-                    {calcularPercentualMTBF() < 60 && (
-                      <li>MTBF está <span className="font-medium text-red-600">crítico</span>, muito abaixo da meta estabelecida.</li>
-                    )}
-                    
-                    {calcularPercentualDisponibilidade() >= 95 && (
-                      <li>Disponibilidade está <span className="font-medium text-green-600">excelente</span>, acima da meta estabelecida.</li>
-                    )}
-                    
-                    {calcularPercentualDisponibilidade() < 95 && calcularPercentualDisponibilidade() >= 80 && (
-                      <li>Disponibilidade está <span className="font-medium text-blue-600">boa</span>, próxima à meta estabelecida.</li>
-                    )}
-                    
-                    {calcularPercentualDisponibilidade() < 80 && calcularPercentualDisponibilidade() >= 60 && (
-                      <li>Disponibilidade está <span className="font-medium text-amber-600">regular</span>, abaixo da meta estabelecida.</li>
-                    )}
-                    
-                    {calcularPercentualDisponibilidade() < 60 && (
-                      <li>Disponibilidade está <span className="font-medium text-red-600">crítica</span>, muito abaixo da meta estabelecida.</li>
-                    )}
-                    
-                    {getMetaAmbiente()?.peso_percentual && getMetaAmbiente()?.peso_percentual > 30 && (
-                      <li>Este ambiente tem <span className="font-medium">{getMetaAmbiente()?.peso_percentual}%</span> de peso na meta global, o que o torna um dos mais importantes.</li>
-                    )}
-                  </>
-                )}
-              </ul>
             </div>
           </div>
         </div>
       ) : (
         /* Visualização de Cards */
         <>
-          {/* Cards de Métricas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Cards de Métricas - responsivo */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard 
               title="Total de Incidentes"
               value={stats.totalIncidentes.toString()}
@@ -595,8 +531,8 @@ const Dashboard: React.FC = () => {
         )}
       </div>
       
-      {/* Gráficos adicionais de quantidade por tipo e horas de impacto */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Gráficos adicionais - responsivo */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow p-4">
           <IncidentTypeQuantityChart 
             incidentes={incidentes}

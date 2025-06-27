@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Clock, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface Incidente {
@@ -40,15 +40,15 @@ interface IncidentModalProps {
 
 const IncidentModal: React.FC<IncidentModalProps> = ({ date, incidents, onClose, onViewIncident }) => {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
         <div className="p-4 border-b border-gray-200 flex justify-between items-center">
           <h3 className="text-lg font-medium text-gray-900">
             Incidentes em {format(date, 'dd/MM/yyyy')}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
+            className="text-gray-400 hover:text-gray-500 p-1"
           >
             <span className="sr-only">Fechar</span>
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -69,11 +69,11 @@ const IncidentModal: React.FC<IncidentModalProps> = ({ date, incidents, onClose,
                   key={incident.id}
                   className="bg-gray-50 rounded-lg p-4 border border-gray-200"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
+                    <div className="flex items-center flex-wrap gap-2">
                       <span className="text-sm font-medium text-gray-900">#{incident.id}</span>
                       <span 
-                        className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium`}
+                        className="px-2 py-0.5 rounded-full text-xs font-medium"
                         style={{ 
                           backgroundColor: `${incident.criticidade.cor}20`,
                           color: incident.criticidade.cor
@@ -88,12 +88,14 @@ const IncidentModal: React.FC<IncidentModalProps> = ({ date, incidents, onClose,
                     </div>
                   </div>
                   
-                  <p className="text-sm text-gray-700 mb-2">{incident.descricao}</p>
+                  <p className="text-sm text-gray-700 mb-2 break-words">{incident.descricao}</p>
                   
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     {incident.duracao_minutos && (
                       <div className="flex items-center text-xs text-gray-500">
-                        <Clock className="h-3 w-3 mr-1" />
+                        <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                         {incident.duracao_minutos >= 60 
                           ? `${Math.floor(incident.duracao_minutos / 60)}h ${incident.duracao_minutos % 60}min`
                           : `${incident.duracao_minutos}min`
@@ -106,7 +108,7 @@ const IncidentModal: React.FC<IncidentModalProps> = ({ date, incidents, onClose,
                       className="text-xs text-primary-600 hover:text-primary-800 flex items-center"
                     >
                       <ExternalLink className="h-3 w-3 mr-1" />
-                      Visualizar detalhes
+                      Ver detalhes
                     </button>
                   </div>
                 </div>
@@ -145,8 +147,9 @@ const HeatMapCalendar: React.FC<HeatMapProps> = ({ incidentes, periodo }) => {
     ? endOfMonth(monthStart) 
     : endOfMonth(currentDate);
   
-  // Dias da semana em português
+  // Dias da semana em português (versão abreviada para mobile)
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const weekDaysMobile = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
   
   // Preparar dados para o calendário
   const calendarDays = useMemo(() => {
@@ -234,17 +237,6 @@ const HeatMapCalendar: React.FC<HeatMapProps> = ({ incidentes, periodo }) => {
     return weeks;
   }, [calendarDays]);
   
-  // Função para determinar a cor de fundo com base na criticidade
-  const getCellBackground = (day: DayData) => {
-    if (!day.date.getTime()) return 'bg-gray-50'; // Dia vazio
-    
-    if (day.highestCriticality) {
-      return `bg-[${day.highestCriticality}]`;
-    }
-    
-    return 'bg-green-50';
-  };
-  
   // Retorna classe de criticidade com base no código de cor
   const getCriticalityClass = (color: string | null) => {
     if (!color) return 'criticality-none';
@@ -277,22 +269,25 @@ const HeatMapCalendar: React.FC<HeatMapProps> = ({ incidentes, periodo }) => {
   return (
     <div className="overflow-hidden">
       <div className="text-center mb-4">
-        <h3 className="text-lg font-medium">
+        <h3 className="text-base sm:text-lg font-medium">
           {format(calendarStart, 'MMMM yyyy', { locale: ptBR })}
         </h3>
       </div>
       
+      {/* Cabeçalho dos dias da semana - responsivo */}
       <div className="grid grid-cols-7 gap-1 mb-1">
-        {weekDays.map(day => (
+        {weekDays.map((day, index) => (
           <div 
             key={day} 
             className="text-xs font-medium text-gray-500 text-center py-1"
           >
-            {day}
+            <span className="hidden sm:inline">{day}</span>
+            <span className="sm:hidden">{weekDaysMobile[index]}</span>
           </div>
         ))}
       </div>
       
+      {/* Calendário responsivo */}
       <div className="grid grid-cols-7 gap-1">
         {calendarWeeks.flatMap((week, weekIndex) =>
           week.map((day, dayIndex) => {
@@ -303,11 +298,12 @@ const HeatMapCalendar: React.FC<HeatMapProps> = ({ incidentes, periodo }) => {
               <div
                 key={`${weekIndex}-${dayIndex}`}
                 className={`
-                  relative rounded-md p-2 h-14 
+                  relative rounded-md p-1 sm:p-2 aspect-square
                   heatmap-cell
                   ${isValidDay ? getCriticalityClass(day.highestCriticality) : 'bg-gray-50'} 
                   ${isToday(day.date) ? 'ring-2 ring-blue-400' : ''}
                   ${!isValidDay ? 'opacity-0 pointer-events-none' : 'cursor-pointer'}
+                  transition-transform hover:scale-105
                 `}
                 title={day.incidents.length > 0 ? 
                   `${format(day.date, 'dd/MM/yyyy')}
@@ -316,14 +312,14 @@ Incidentes: ${day.incidents.map(inc => `#${inc.id}`).join(', ')}` :
                 }
                 onClick={isValidDay ? () => handleDayClick(day) : undefined}
               >
-                <div className="absolute top-1 left-1 text-xs font-semibold">
+                <div className="absolute top-0.5 left-0.5 sm:top-1 sm:left-1 text-xs font-semibold">
                   {isValidDay ? format(day.date, 'd') : ''}
                 </div>
                 
                 {day.incidents.length > 0 && (
-                  <div className="absolute bottom-1 right-1">
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white text-xs font-medium">
-                      {day.incidents.length}
+                  <div className="absolute bottom-0.5 right-0.5 sm:bottom-1 sm:right-1">
+                    <span className="flex h-3 w-3 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-white text-xs font-medium shadow-sm">
+                      {day.incidents.length > 9 ? '9+' : day.incidents.length}
                     </span>
                   </div>
                 )}
@@ -333,34 +329,34 @@ Incidentes: ${day.incidents.map(inc => `#${inc.id}`).join(', ')}` :
         )}
       </div>
       
-      {/* Legenda */}
-      <div className="mt-6 flex flex-wrap gap-4 justify-center">
+      {/* Legenda responsiva */}
+      <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4">
         <div className="flex items-center">
-          <div className="w-4 h-4 rounded-sm criticality-critical mr-2"></div>
+          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-sm criticality-critical mr-2 flex-shrink-0"></div>
           <span className="text-xs">Crítico</span>
         </div>
         <div className="flex items-center">
-          <div className="w-4 h-4 rounded-sm criticality-high mr-2"></div>
+          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-sm criticality-high mr-2 flex-shrink-0"></div>
           <span className="text-xs">Alto</span>
         </div>
         <div className="flex items-center">
-          <div className="w-4 h-4 rounded-sm criticality-medium mr-2"></div>
+          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-sm criticality-medium mr-2 flex-shrink-0"></div>
           <span className="text-xs">Médio</span>
         </div>
         <div className="flex items-center">
-          <div className="w-4 h-4 rounded-sm criticality-low mr-2"></div>
+          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-sm criticality-low mr-2 flex-shrink-0"></div>
           <span className="text-xs">Baixo</span>
         </div>
         <div className="flex items-center">
-          <div className="w-4 h-4 rounded-sm criticality-very-low mr-2"></div>
+          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-sm criticality-very-low mr-2 flex-shrink-0"></div>
           <span className="text-xs">Baixíssimo</span>
         </div>
         <div className="flex items-center">
-          <div className="w-4 h-4 rounded-sm criticality-zero mr-2"></div>
+          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-sm criticality-zero mr-2 flex-shrink-0"></div>
           <span className="text-xs">Zero Impacto</span>
         </div>
         <div className="flex items-center">
-          <div className="w-4 h-4 rounded-sm criticality-none mr-2"></div>
+          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-sm criticality-none mr-2 flex-shrink-0"></div>
           <span className="text-xs">Sem Incidentes</span>
         </div>
       </div>

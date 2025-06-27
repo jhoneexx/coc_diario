@@ -75,9 +75,9 @@ const FilterBar: React.FC<FilterBarProps> = ({
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm">
-      <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
-        {/* Seletor de Ambiente */}
-        <div className="flex-1">
+      <div className="flex flex-col space-y-4">
+        {/* Primeira linha - Ambiente */}
+        <div className="w-full">
           <label htmlFor="ambiente" className="block text-sm font-medium text-gray-700 mb-1">
             Ambiente
           </label>
@@ -97,13 +97,13 @@ const FilterBar: React.FC<FilterBarProps> = ({
           </select>
         </div>
         
-        {/* Seletor de Período */}
-        <div className="flex-1">
+        {/* Segunda linha - Período */}
+        <div className="w-full">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Período
           </label>
-          <div className="flex items-center space-x-2">
-            <div className="relative flex-1">
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+            <div className="flex-1">
               <input
                 type="date"
                 name="inicio"
@@ -112,8 +112,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
                 className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
               />
             </div>
-            <span className="text-gray-500">até</span>
-            <div className="relative flex-1">
+            <span className="text-gray-500 text-center sm:text-left">até</span>
+            <div className="flex-1">
               <input
                 type="date"
                 name="fim"
@@ -125,37 +125,37 @@ const FilterBar: React.FC<FilterBarProps> = ({
           </div>
         </div>
         
-        {/* Atalhos de Período */}
-        <div className="flex-1">
+        {/* Terceira linha - Atalhos de Período */}
+        <div className="w-full">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Atalhos de Período
           </label>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               type="button"
               onClick={() => setPeriodoPreset('hoje')}
-              className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              className="inline-flex items-center justify-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             >
               Hoje
             </button>
             <button
               type="button"
               onClick={() => setPeriodoPreset('7dias')}
-              className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              className="inline-flex items-center justify-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             >
               7 dias
             </button>
             <button
               type="button"
               onClick={() => setPeriodoPreset('30dias')}
-              className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              className="inline-flex items-center justify-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             >
               30 dias
             </button>
             <button
               type="button"
               onClick={() => setPeriodoPreset('mes')}
-              className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              className="inline-flex items-center justify-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             >
               Mês atual
             </button>

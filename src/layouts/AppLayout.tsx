@@ -91,14 +91,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       <aside 
         className={`bg-white shadow-md w-64 fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0`}
+        } lg:translate-x-0`}
       >
         <div className="flex flex-col h-full">
           {/* Logo e Título */}
-          <div className="flex items-center justify-between px-6 h-16 border-b">
-            <h1 className="text-xl font-semibold text-primary-600">Cloud Ops Center</h1>
+          <div className="flex items-center justify-between px-4 lg:px-6 h-16 border-b">
+            <h1 className="text-lg lg:text-xl font-semibold text-primary-600 truncate">Cloud Ops Center</h1>
             <button 
-              className="md:hidden text-gray-600 hover:text-gray-900" 
+              className="lg:hidden text-gray-600 hover:text-gray-900 p-1" 
               onClick={toggleSidebar}
             >
               <X size={20} />
@@ -106,46 +106,46 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           </div>
           
           {/* Menu de Navegação */}
-          <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+          <nav className="flex-1 px-2 lg:px-4 py-4 space-y-1 overflow-y-auto">
             <button 
               onClick={() => navigate('/dashboard')}
-              className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+              className={`w-full flex items-center px-3 lg:px-4 py-3 text-sm font-medium rounded-md transition-colors ${
                 isActive('/dashboard') 
                   ? 'bg-primary-50 text-primary-600' 
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <LayoutDashboard className="mr-3 h-5 w-5" />
-              Dashboard
+              <LayoutDashboard className="mr-3 h-5 w-5 flex-shrink-0" />
+              <span className="truncate">Dashboard</span>
             </button>
             
             <button 
               onClick={() => navigate('/incidentes')}
-              className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+              className={`w-full flex items-center px-3 lg:px-4 py-3 text-sm font-medium rounded-md transition-colors ${
                 isActive('/incidentes') || location.pathname.includes('/incidentes/') && !location.pathname.includes('/incidentes/aprovacoes')
                   ? 'bg-primary-50 text-primary-600' 
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <AlertCircle className="mr-3 h-5 w-5" />
-              Incidentes
+              <AlertCircle className="mr-3 h-5 w-5 flex-shrink-0" />
+              <span className="truncate">Incidentes</span>
             </button>
             
             {(isAdmin() || isGestor()) && (
               <button 
                 onClick={() => navigate('/incidentes/aprovacoes')}
-                className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+                className={`w-full flex items-center px-3 lg:px-4 py-3 text-sm font-medium rounded-md transition-colors ${
                   isActive('/incidentes/aprovacoes') 
                     ? 'bg-primary-50 text-primary-600' 
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                <CheckSquare className="mr-3 h-5 w-5" />
-                <div className="flex items-center">
-                  Aprovações
+                <CheckSquare className="mr-3 h-5 w-5 flex-shrink-0" />
+                <div className="flex items-center justify-between w-full">
+                  <span className="truncate">Aprovações</span>
                   {pendingCount > 0 && (
-                    <div className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">
-                      {pendingCount}
+                    <div className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white flex-shrink-0">
+                      {pendingCount > 9 ? '9+' : pendingCount}
                     </div>
                   )}
                 </div>
@@ -155,51 +155,51 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             {canViewReports() && (
               <button 
                 onClick={() => navigate('/relatorios')}
-                className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+                className={`w-full flex items-center px-3 lg:px-4 py-3 text-sm font-medium rounded-md transition-colors ${
                   isActive('/relatorios') 
                     ? 'bg-primary-50 text-primary-600' 
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                <BarChart3 className="mr-3 h-5 w-5" />
-                Relatórios
+                <BarChart3 className="mr-3 h-5 w-5 flex-shrink-0" />
+                <span className="truncate">Relatórios</span>
               </button>
             )}
             
             {isAdmin() && (
               <button 
                 onClick={() => navigate('/configuracoes')}
-                className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+                className={`w-full flex items-center px-3 lg:px-4 py-3 text-sm font-medium rounded-md transition-colors ${
                   isActive('/configuracoes') 
                     ? 'bg-primary-50 text-primary-600' 
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                <Settings className="mr-3 h-5 w-5" />
-                Configurações
+                <Settings className="mr-3 h-5 w-5 flex-shrink-0" />
+                <span className="truncate">Configurações</span>
               </button>
             )}
           </nav>
           
           {/* Footer */}
-          <div className="border-t p-4">
+          <div className="border-t p-2 lg:p-4">
             <button 
               onClick={handleLogout}
-              className="w-full flex items-center px-4 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
+              className="w-full flex items-center px-3 lg:px-4 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
             >
-              <LogOut className="mr-3 h-5 w-5" />
-              Sair
+              <LogOut className="mr-3 h-5 w-5 flex-shrink-0" />
+              <span className="truncate">Sair</span>
             </button>
           </div>
         </div>
       </aside>
       
       {/* Main Content */}
-      <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
+      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
         {/* Header */}
-        <header className="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-6">
+        <header className="bg-white shadow-sm h-16 flex items-center justify-between px-4 lg:px-6">
           <button 
-            className="md:hidden text-gray-600 hover:text-gray-900" 
+            className="lg:hidden text-gray-600 hover:text-gray-900 p-1" 
             onClick={toggleSidebar}
           >
             <Menu size={24} />
@@ -207,14 +207,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           
           {/* Notificações */}
           {(isAdmin() || isGestor()) && pendingCount > 0 && (
-            <div className="mr-4 md:mr-auto ml-4 md:ml-0">
+            <div className="mr-4 lg:mr-auto ml-4 lg:ml-0">
               <button 
                 onClick={() => navigate('/incidentes/aprovacoes')}
                 className="relative p-1 text-gray-600 hover:text-gray-900 focus:outline-none"
               >
                 <Bell className="h-6 w-6" />
                 <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
-                  {pendingCount}
+                  {pendingCount > 9 ? '9+' : pendingCount}
                 </span>
               </button>
             </div>
@@ -226,11 +226,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               onClick={toggleProfileMenu}
               className="flex items-center space-x-2 text-sm font-medium text-gray-700 focus:outline-none"
             >
-              <div className="bg-primary-100 text-primary-700 w-8 h-8 rounded-full flex items-center justify-center">
+              <div className="bg-primary-100 text-primary-700 w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
                 <User size={16} />
               </div>
-              <span className="hidden md:block">{currentUser?.nome}</span>
-              <ChevronDown size={16} />
+              <span className="hidden sm:block truncate max-w-32">{currentUser?.nome}</span>
+              <ChevronDown size={16} className="flex-shrink-0" />
             </button>
             
             {profileMenuOpen && (
@@ -239,7 +239,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                   Logado como
                 </div>
                 <div className="px-4 py-2 text-sm border-b">
-                  <p className="font-medium">{currentUser?.nome}</p>
+                  <p className="font-medium truncate">{currentUser?.nome}</p>
                   <p className="text-gray-500 capitalize">{currentUser?.perfil}</p>
                 </div>
                 <button 
@@ -254,7 +254,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         </header>
         
         {/* Main Content */}
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto">
+        <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
           {children}
         </main>
       </div>
@@ -262,7 +262,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       {/* Overlay for mobile sidebar */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden" 
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden" 
           onClick={toggleSidebar}
         />
       )}
