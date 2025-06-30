@@ -76,8 +76,10 @@ const useTabsContext = () => {
 
 export const TabsList: React.FC<TabsListProps> = ({ children, className }) => {
   return (
-    <div className={className}>
-      {children}
+    <div className={`${className} overflow-x-auto`}>
+      <div className="flex min-w-max">
+        {children}
+      </div>
     </div>
   );
 };
@@ -95,10 +97,10 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
       type="button"
       role="tab"
       aria-selected={isActive}
-      className={`px-1 py-2 font-medium text-sm transition-colors focus:outline-none ${
+      className={`px-4 py-3 font-medium text-sm transition-colors focus:outline-none whitespace-nowrap min-h-[48px] flex items-center justify-center ${
         isActive 
-          ? 'text-primary-600 border-b-2 border-primary-600' 
-          : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50' 
+          : 'text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
       } ${className || ''}`}
       onClick={() => onValueChange(value)}
     >
