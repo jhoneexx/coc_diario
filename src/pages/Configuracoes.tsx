@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';
-import { Users, Server, AlertTriangle, Award, Settings } from 'lucide-react';
+import { Users, Server, AlertTriangle, Award, Settings, Upload } from 'lucide-react';
 import supabase from '../lib/supabase';
 
 // Componentes
@@ -12,6 +12,7 @@ import GerenciarTiposIncidente from '../components/configuracoes/GerenciarTiposI
 import GerenciarCriticidades from '../components/configuracoes/GerenciarCriticidades';
 import GerenciarMetas from '../components/configuracoes/GerenciarMetas';
 import LogsAuditoriaTable from '../components/configuracoes/LogsAuditoriaTable';
+import ImportarIncidentes from '../components/configuracoes/ImportarIncidentes';
 
 // Tipos
 export interface Usuario {
@@ -123,6 +124,10 @@ const Configuracoes: React.FC = () => {
             <Award className="h-5 w-5 mr-2" />
             <span>Metas</span>
           </TabsTrigger>
+          <TabsTrigger value="importacao" className="flex items-center">
+            <Upload className="h-5 w-5 mr-2" />
+            <span>Importação</span>
+          </TabsTrigger>
           <TabsTrigger value="logs" className="flex items-center">
             <Settings className="h-5 w-5 mr-2" />
             <span>Logs de Auditoria</span>
@@ -151,6 +156,10 @@ const Configuracoes: React.FC = () => {
         
         <TabsContent value="metas" className="mt-0">
           <GerenciarMetas />
+        </TabsContent>
+        
+        <TabsContent value="importacao" className="mt-0">
+          <ImportarIncidentes />
         </TabsContent>
         
         <TabsContent value="logs" className="mt-0">
