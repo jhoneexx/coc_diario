@@ -288,8 +288,8 @@ const GerenciarMetas: React.FC = () => {
         const incidentesDoAmbiente = incidentesData?.filter(inc => inc.ambiente_id === meta.ambiente_id) || [];
         
         // Calcular métricas reais
-        const mttrReal = calcularMTTR(incidentesDoAmbiente);
-        const mtbfReal = calcularMTBF(incidentesDoAmbiente, periodoRealizacao.inicio, periodoRealizacao.fim);
+        const mttrReal = calcularMTTR(incidentesDoAmbiente, true); // Manter filtro por downtime
+        const mtbfReal = calcularMTBF(incidentesDoAmbiente, periodoRealizacao.inicio, periodoRealizacao.fim, true); // Manter filtro por downtime
         const dispReal = calcularDisponibilidade(incidentesDoAmbiente, periodoRealizacao.inicio, periodoRealizacao.fim);
         
         // Calcular percentual de atingimento (considerando que valores menores são melhores para MTTR,

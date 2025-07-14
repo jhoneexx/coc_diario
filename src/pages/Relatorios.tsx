@@ -7,6 +7,7 @@ import supabase from '../lib/supabase';
 import FilterBar from '../components/common/FilterBar';
 import { exportReportToExcel, exportReportToPDF } from '../utils/exportReports';
 import DetailedReportTable from '../components/relatorios/DetailedReportTable';
+import CriticidadeMetricsReport from '../components/relatorios/CriticidadeMetricsReport';
 import IncidentTypeQuantityChart from '../components/dashboard/IncidentTypeQuantityChart';
 import IncidentImpactHoursChart from '../components/dashboard/IncidentImpactHoursChart';
 import IncidentTrendChart from '../components/relatorios/IncidentTrendChart';
@@ -86,7 +87,7 @@ const Relatorios: React.FC = () => {
   });
   
   // Visualização ativa
-  const [activeView, setActiveView] = useState<'metricas' | 'tiposIncidente' | 'historico' | 'detalhado' | 'impacto' | 'metas'>('metricas');
+  const [activeView, setActiveView] = useState<'metricas' | 'tiposIncidente' | 'historico' | 'detalhado' | 'impacto' | 'metas' | 'criticidade'>('metricas');
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -187,8 +188,8 @@ const Relatorios: React.FC = () => {
               : ambientes.find(a => a.id === ambId)?.nome || `Ambiente ${ambId}`;
             
             // Calcular métricas
-            const mttr = calcularMTTR(incidentesDoAmbiente);
-            const mtbf = calcularMTBF(incidentesDoAmbiente, filtroPeriodo.inicio, filtroPeriodo.fim);
+            const mttr = calcularMTTR(incidentesDoAmbiente, true);
+            const mtbf = calcularMTBF(incidentesDoAmbiente, filtroPeriodo.inicio, filtroPeriodo.fim, true);
             const disponibilidade = calcularDisponibilidade(incidentesDoAmbiente, filtroPeriodo.inicio, filtroPeriodo.fim);
             
             // Buscar metas do ambiente
@@ -618,6 +619,18 @@ const Relatorios: React.FC = () => {
             >
               <ListFilter className="inline-block h-4 w-4 mr-2" />
               Detalhado
+            </button>
+            
+            <button
+              className={`px-6 py-4 text-sm font-medium border-b-2 ${
+                activeView === 'criticidade'
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              onClick={() => setActiveView('criticidade')}
+            >
+              <AlertTriangle className="inline-block h-4 w-4 mr-2" />
+              Por Criticidade
             </button>
           </nav>
         </div>
@@ -1142,6 +1155,10 @@ const Relatorios: React.FC = () => {
                   
                   <DetailedReportTable incidentes={incidentes} />
                 </div>
+              )}
+              
+              {activeView === 'criticidade' && (
+                <CriticidadeMetricsReport />
               )}
             </>
           )}

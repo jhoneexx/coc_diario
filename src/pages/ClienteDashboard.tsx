@@ -156,8 +156,8 @@ const ClienteDashboard: React.FC = () => {
           const incidentesCriticos = incidentesData.filter(inc => inc.criticidade.is_downtime).length;
           
           // Calcular MTTR, MTBF e disponibilidade usando nossas funções
-          const mttrResult = calcularMTTR(incidentesData);
-          const mtbfResult = calcularMTBF(incidentesData, filtroPeriodo.inicio, filtroPeriodo.fim);
+          const mttrResult = calcularMTTR(incidentesData, true); // Manter filtro por downtime
+          const mtbfResult = calcularMTBF(incidentesData, filtroPeriodo.inicio, filtroPeriodo.fim, true); // Manter filtro por downtime
           const dispResult = calcularDisponibilidade(incidentesData, filtroPeriodo.inicio, filtroPeriodo.fim);
           
           // Calcular máximo de dias sem incidentes
