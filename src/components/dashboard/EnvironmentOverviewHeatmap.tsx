@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ExternalLink, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -164,10 +164,12 @@ const EnvironmentOverviewHeatmap: React.FC<EnvironmentOverviewHeatmapProps> = ({
     incidents: Incidente[];
   } | null>(null);
   
-  // Configurar mês atual para o calendário
-  const currentDate = new Date();
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
+  // Memoize the current date to prevent re-rendering issues
+  const stableCurrentDate = useMemo(() => new Date(), []);
+  
+  // Memoize month start and end dates
+  const monthStart = useMemo(() => startOfMonth(stableCurrentDate), [stableCurrentDate]);
+  const monthEnd = useMemo(() => endOfMonth(stableCurrentDate), [stableCurrentDate]);
   
   // Dias do mês
   const daysOfMonth = useMemo(() => {
@@ -207,8 +209,8 @@ const EnvironmentOverviewHeatmap: React.FC<EnvironmentOverviewHeatmapProps> = ({
         }
         
         // Carregar incidentes do mês atual
-        const inicioMes = monthStart.toISOString().split('T')[0];
-        const fimMes = monthEnd.toISOString().split('T')[0];
+        const inicioMes = monthStart.toISOString().split('T')[0]; 
+        const fimMes = monthEnd.toISOString().split('T')[0]; 
         
         const { data: incidentesData, error: incidentesError } = await supabase
           .from('incidentes')
@@ -235,7 +237,7 @@ const EnvironmentOverviewHeatmap: React.FC<EnvironmentOverviewHeatmapProps> = ({
     };
     
     fetchData();
-  }, [monthStart, monthEnd]);
+  }, []);
   
   // Função para obter incidentes de um dia específico para um ambiente/segmento
   const getIncidentsForDayAndSegment = (day: Date, ambienteId: number, segmentoId: number) => {
