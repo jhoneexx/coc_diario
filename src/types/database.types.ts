@@ -128,27 +128,39 @@ export interface Database {
         Row: {
           id: number
           ambiente_id: number
+          segmento_id: number | null
           mttr_meta: number
           mtbf_meta: number
           disponibilidade_meta: number
+          peso_percentual: number
+          mttr_permite_superacao: boolean
+          mtbf_permite_superacao: boolean
           criado_em: string
           atualizado_em: string
         }
         Insert: {
           id?: number
           ambiente_id: number
+          segmento_id?: number | null
           mttr_meta: number
           mtbf_meta: number
           disponibilidade_meta: number
+          peso_percentual?: number
+          mttr_permite_superacao?: boolean
+          mtbf_permite_superacao?: boolean
           criado_em?: string
           atualizado_em?: string
         }
         Update: {
           id?: number
           ambiente_id?: number
+          segmento_id?: number | null
           mttr_meta?: number
           mtbf_meta?: number
           disponibilidade_meta?: number
+          peso_percentual?: number
+          mttr_permite_superacao?: boolean
+          mtbf_permite_superacao?: boolean
           criado_em?: string
           atualizado_em?: string
         }
@@ -157,6 +169,12 @@ export interface Database {
             foreignKeyName: "metas_ambiente_id_fkey"
             columns: ["ambiente_id"]
             referencedRelation: "ambientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metas_segmento_id_fkey"
+            columns: ["segmento_id"]
+            referencedRelation: "segmentos"
             referencedColumns: ["id"]
           }
         ]

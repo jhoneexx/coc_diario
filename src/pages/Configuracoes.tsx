@@ -67,9 +67,14 @@ export interface Meta {
   id: number;
   ambiente_id: number;
   ambiente?: { nome: string };
+  segmento_id: number | null;
+  segmento?: { nome: string };
   mttr_meta: number;
   mtbf_meta: number;
   disponibilidade_meta: number;
+  peso_percentual: number;
+  mttr_permite_superacao: boolean;
+  mtbf_permite_superacao: boolean;
   peso_percentual: number;
   mttr_permite_superacao: boolean;
   mtbf_permite_superacao: boolean;
