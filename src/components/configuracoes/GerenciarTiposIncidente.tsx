@@ -3,8 +3,10 @@ import { toast } from 'react-toastify';
 import { Edit, Trash, Plus, Save, X, AlertCircle } from 'lucide-react';
 import supabase from '../../lib/supabase';
 import { TipoIncidente } from '../../pages/Configuracoes';
+import { useAuth } from '../../contexts/AuthContext';
 
 const GerenciarTiposIncidente: React.FC = () => {
+  const { currentUser } = useAuth();
   const [tiposIncidente, setTiposIncidente] = useState<TipoIncidente[]>([]);
   const [loading, setLoading] = useState(true);
   const [editandoId, setEditandoId] = useState<number | null>(null);
@@ -80,6 +82,8 @@ const GerenciarTiposIncidente: React.FC = () => {
     if (modalExcluir === null) return;
     
     try {
+      const tipoParaExcluir = tiposIncidente.find(t => t.id === modalExcluir);
+      
       // Verificar se há incidentes relacionados
       const { data: incidentesRelacionados, error: incidentesError } = await supabase
         .from('incidentes')
@@ -104,6 +108,16 @@ const GerenciarTiposIncidente: React.FC = () => {
       
       // Atualizar lista
       setTiposIncidente(prev => prev.filter(t => t.id !== modalExcluir));
+      
+      // Registrar log de auditoria
+      if (currentUser && tipoParaExcluir) {
+        await supabase.from('logs_acesso').insert({
+          usuario_id: currentUser.id,
+          acao: 'excluir_tipo_incidente',
+          detalhes: `Tipo de incidente excluído: ID ${modalExcluir}, Nome: "${tipoParaExcluir.nome}"`
+        });
+      }
+      
       toast.success('Tipo de incidente excluído com sucesso');
     } catch (error) {
       console.error('Erro ao excluir tipo de incidente:', error);
@@ -124,6 +138,8 @@ const GerenciarTiposIncidente: React.FC = () => {
     try {
       if (editandoId) {
         // Atualizando tipo de incidente existente
+        const tipoAnterior = tiposIncidente.find(t => t.id === editandoId);
+        
         const { error } = await supabase
           .from('tipos_incidente')
           .update(formData)
@@ -135,6 +151,15 @@ const GerenciarTiposIncidente: React.FC = () => {
         setTiposIncidente(prev => prev.map(t => 
           t.id === editandoId ? { ...t, ...formData as TipoIncidente } : t
         ));
+        
+        // Registrar log de auditoria
+        if (currentUser && tipoAnterior) {
+          await supabase.from('logs_acesso').insert({
+            usuario_id: currentUser.id,
+            acao: 'editar_tipo_incidente',
+            detalhes: `Tipo de incidente editado: ID ${editandoId}, Nome: "${tipoAnterior.nome}" → "${formData.nome}", Descrição: "${tipoAnterior.descricao || ''}" → "${formData.descricao || ''}"`
+          });
+        }
         
         toast.success('Tipo de incidente atualizado com sucesso');
       } else {
@@ -150,6 +175,15 @@ const GerenciarTiposIncidente: React.FC = () => {
         // Atualizar lista
         if (data) {
           setTiposIncidente(prev => [...prev, data]);
+          
+          // Registrar log de auditoria
+          if (currentUser) {
+            await supabase.from('logs_acesso').insert({
+              usuario_id: currentUser.id,
+              acao: 'criar_tipo_incidente',
+              detalhes: `Tipo de incidente criado: ID ${data.id}, Nome: "${data.nome}", Descrição: "${data.descricao || ''}"`
+            });
+          }
         }
         
         toast.success('Tipo de incidente criado com sucesso');

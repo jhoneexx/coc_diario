@@ -291,6 +291,13 @@ const AprovacoesIncidentes: React.FC = () => {
         
         if (approvalError) throw approvalError;
         
+        // Registrar log de auditoria
+        await supabase.from('logs_acesso').insert({
+          usuario_id: currentUser.id,
+          acao: 'aprovar_incidente_edicao',
+          detalhes: `Aprovação de edição de incidente: ID ${modalAprovacao.incidente_id}, Solicitante: ${modalAprovacao.usuario_solicitante?.nome}`
+        });
+        
         toast.success('Edição do incidente aprovada com sucesso!');
       } else if (modalAprovacao.tipo_operacao === 'exclusao') {
         // Aprovar exclusão - Excluir o incidente
@@ -312,6 +319,13 @@ const AprovacoesIncidentes: React.FC = () => {
           .eq('id', modalAprovacao.id);
         
         if (approvalError) throw approvalError;
+        
+        // Registrar log de auditoria
+        await supabase.from('logs_acesso').insert({
+          usuario_id: currentUser.id,
+          acao: 'aprovar_incidente_exclusao',
+          detalhes: `Aprovação de exclusão de incidente: ID ${modalAprovacao.incidente_id}, Solicitante: ${modalAprovacao.usuario_solicitante?.nome}`
+        });
         
         toast.success('Exclusão do incidente aprovada com sucesso!');
       }
@@ -368,6 +382,14 @@ const AprovacoesIncidentes: React.FC = () => {
         .eq('id', modalAprovacao.id);
       
       if (error) throw error;
+      
+      // Registrar log de auditoria
+      const acao = modalAprovacao.tipo_operacao === 'edicao' ? 'rejeitar_incidente_edicao' : 'rejeitar_incidente_exclusao';
+      await supabase.from('logs_acesso').insert({
+        usuario_id: currentUser.id,
+        acao: acao,
+        detalhes: `Rejeição de ${modalAprovacao.tipo_operacao} de incidente: ID ${modalAprovacao.incidente_id}, Solicitante: ${modalAprovacao.usuario_solicitante?.nome}, Motivo: ${motivoRejeicao}`
+      });
       
       // Atualizar a lista de aprovações
       setAprovacoes(prev => prev.map(ap => 

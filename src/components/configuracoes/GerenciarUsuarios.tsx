@@ -3,8 +3,10 @@ import { toast } from 'react-toastify';
 import { User, Edit, Trash, Plus, Save, X, Eye, EyeOff } from 'lucide-react';
 import supabase from '../../lib/supabase';
 import { Usuario } from '../../pages/Configuracoes';
+import { useAuth } from '../../contexts/AuthContext';
 
 const GerenciarUsuarios: React.FC = () => {
+  const { currentUser } = useAuth();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [editandoId, setEditandoId] = useState<number | null>(null);
@@ -89,6 +91,8 @@ const GerenciarUsuarios: React.FC = () => {
     if (modalExcluir === null) return;
     
     try {
+      const usuarioParaExcluir = usuarios.find(u => u.id === modalExcluir);
+      
       // Primeiro, excluir todos os logs de acesso do usuário
       const { error: logsError } = await supabase
         .from('logs_acesso')
@@ -107,6 +111,16 @@ const GerenciarUsuarios: React.FC = () => {
       
       // Atualizar lista
       setUsuarios(prev => prev.filter(u => u.id !== modalExcluir));
+      
+      // Registrar log de auditoria
+      if (currentUser && usuarioParaExcluir) {
+        await supabase.from('logs_acesso').insert({
+          usuario_id: currentUser.id,
+          acao: 'excluir_usuario',
+          detalhes: `Usuário excluído: ID ${modalExcluir}, Nome: "${usuarioParaExcluir.nome}", Login: "${usuarioParaExcluir.login}"`
+        });
+      }
+      
       toast.success('Usuário excluído com sucesso');
     } catch (error) {
       console.error('Erro ao excluir usuário:', error);
@@ -127,6 +141,8 @@ const GerenciarUsuarios: React.FC = () => {
     try {
       if (editandoId) {
         // Atualizando usuário existente
+        const usuarioAnterior = usuarios.find(u => u.id === editandoId);
+        
         const updateData = { ...formData };
         
         // Se senha estiver vazia, não atualiza a senha
@@ -146,6 +162,15 @@ const GerenciarUsuarios: React.FC = () => {
           u.id === editandoId ? { ...u, ...updateData } : u
         ));
         
+        // Registrar log de auditoria (sem incluir senha por segurança)
+        if (currentUser && usuarioAnterior) {
+          await supabase.from('logs_acesso').insert({
+            usuario_id: currentUser.id,
+            acao: 'editar_usuario',
+            detalhes: `Usuário editado: ID ${editandoId}, Nome: "${usuarioAnterior.nome}" → "${formData.nome}", Login: "${usuarioAnterior.login}" → "${formData.login}", Perfil: "${usuarioAnterior.perfil}" → "${formData.perfil}"${formData.senha ? ', Senha alterada' : ''}`
+          });
+        }
+        
         toast.success('Usuário atualizado com sucesso');
       } else {
         // Criando novo usuário
@@ -160,6 +185,15 @@ const GerenciarUsuarios: React.FC = () => {
         // Atualizar lista
         if (data) {
           setUsuarios(prev => [...prev, data]);
+          
+          // Registrar log de auditoria (sem incluir senha por segurança)
+          if (currentUser) {
+            await supabase.from('logs_acesso').insert({
+              usuario_id: currentUser.id,
+              acao: 'criar_usuario',
+              detalhes: `Usuário criado: ID ${data.id}, Nome: "${data.nome}", Login: "${data.login}", Perfil: "${data.perfil}"`
+            });
+          }
         }
         
         toast.success('Usuário criado com sucesso');

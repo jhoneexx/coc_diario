@@ -102,6 +102,15 @@ const ImportarIncidentes: React.FC = () => {
       
       if (result.success > 0) {
         toast.success(`${result.success} incidentes importados com sucesso!`);
+        
+        // Registrar log de auditoria
+        if (currentUser) {
+          await supabase.from('logs_acesso').insert({
+            usuario_id: currentUser.id,
+            acao: 'importar_incidentes',
+            detalhes: `Importação de incidentes concluída: ${result.success} sucessos, ${result.errors} erros`
+          });
+        }
       }
       
       if (result.errors > 0) {

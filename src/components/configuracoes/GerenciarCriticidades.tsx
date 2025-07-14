@@ -3,8 +3,10 @@ import { toast } from 'react-toastify';
 import { Edit, Trash, Plus, Save, X, AlertTriangle } from 'lucide-react';
 import supabase from '../../lib/supabase';
 import { Criticidade } from '../../pages/Configuracoes';
+import { useAuth } from '../../contexts/AuthContext';
 
 const GerenciarCriticidades: React.FC = () => {
+  const { currentUser } = useAuth();
   const [criticidades, setCriticidades] = useState<Criticidade[]>([]);
   const [loading, setLoading] = useState(true);
   const [editandoId, setEditandoId] = useState<number | null>(null);
@@ -113,6 +115,8 @@ const GerenciarCriticidades: React.FC = () => {
     if (modalExcluir === null) return;
     
     try {
+      const criticidadeParaExcluir = criticidades.find(c => c.id === modalExcluir);
+      
       // Verificar se há incidentes relacionados
       const { data: incidentesRelacionados, error: incidentesError } = await supabase
         .from('incidentes')
@@ -137,6 +141,16 @@ const GerenciarCriticidades: React.FC = () => {
       
       // Atualizar lista
       setCriticidades(prev => prev.filter(c => c.id !== modalExcluir));
+      
+      // Registrar log de auditoria
+      if (currentUser && criticidadeParaExcluir) {
+        await supabase.from('logs_acesso').insert({
+          usuario_id: currentUser.id,
+          acao: 'excluir_criticidade',
+          detalhes: `Criticidade excluída: ID ${modalExcluir}, Nome: "${criticidadeParaExcluir.nome}"`
+        });
+      }
+      
       toast.success('Criticidade excluída com sucesso');
     } catch (error) {
       console.error('Erro ao excluir criticidade:', error);
@@ -157,6 +171,8 @@ const GerenciarCriticidades: React.FC = () => {
     try {
       if (editandoId) {
         // Atualizando criticidade existente
+        const criticidadeAnterior = criticidades.find(c => c.id === editandoId);
+        
         const { error } = await supabase
           .from('criticidades')
           .update(formData)
@@ -168,6 +184,15 @@ const GerenciarCriticidades: React.FC = () => {
         setCriticidades(prev => prev.map(c => 
           c.id === editandoId ? { ...c, ...formData as Criticidade } : c
         ));
+        
+        // Registrar log de auditoria
+        if (currentUser && criticidadeAnterior) {
+          await supabase.from('logs_acesso').insert({
+            usuario_id: currentUser.id,
+            acao: 'editar_criticidade',
+            detalhes: `Criticidade editada: ID ${editandoId}, Nome: "${criticidadeAnterior.nome}" → "${formData.nome}", Cor: "${criticidadeAnterior.cor}" → "${formData.cor}", Peso: ${criticidadeAnterior.peso} → ${formData.peso}, Downtime: ${criticidadeAnterior.is_downtime} → ${formData.is_downtime}`
+          });
+        }
         
         toast.success('Criticidade atualizada com sucesso');
       } else {
@@ -183,6 +208,15 @@ const GerenciarCriticidades: React.FC = () => {
         // Atualizar lista
         if (data) {
           setCriticidades(prev => [...prev, data]);
+          
+          // Registrar log de auditoria
+          if (currentUser) {
+            await supabase.from('logs_acesso').insert({
+              usuario_id: currentUser.id,
+              acao: 'criar_criticidade',
+              detalhes: `Criticidade criada: ID ${data.id}, Nome: "${data.nome}", Cor: "${data.cor}", Peso: ${data.peso}, Downtime: ${data.is_downtime}`
+            });
+          }
         }
         
         toast.success('Criticidade criada com sucesso');

@@ -4,6 +4,7 @@ import { Edit, Plus, Save, X, Target, PieChart, ChevronDown, ChevronUp, Trash, S
 import supabase from '../../lib/supabase';
 import { Meta, Ambiente, Segmento } from '../../pages/Configuracoes';
 import { calcularMTTR, calcularMTBF, calcularDisponibilidade } from '../../utils/metricsCalculations';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface MetaRealizacaoData {
   ambiente_id: number;
@@ -21,6 +22,7 @@ interface MetaRealizacaoData {
 }
 
 const GerenciarMetas: React.FC = () => {
+  const { currentUser } = useAuth();
   const [metas, setMetas] = useState<Meta[]>([]);
   const [ambientes, setAmbientes] = useState<Ambiente[]>([]);
   const [allSegments, setAllSegments] = useState<Segmento[]>([]);
@@ -302,6 +304,8 @@ const GerenciarMetas: React.FC = () => {
     if (modalExcluir === null) return;
     
     try {
+      const metaParaExcluir = metas.find(m => m.id === modalExcluir);
+      
       const { error } = await supabase
         .from('metas')
         .delete()
@@ -311,6 +315,16 @@ const GerenciarMetas: React.FC = () => {
       
       // Atualizar lista
       setMetas(prev => prev.filter(m => m.id !== modalExcluir));
+      
+      // Registrar log de auditoria
+      if (currentUser && metaParaExcluir) {
+        await supabase.from('logs_acesso').insert({
+          usuario_id: currentUser.id,
+          acao: 'excluir_meta',
+          detalhes: `Meta excluída: ID ${modalExcluir}, Ambiente: "${metaParaExcluir.ambiente?.nome}", Segmento: "${metaParaExcluir.segmento?.nome || 'Geral'}"`
+        });
+      }
+      
       toast.success('Meta excluída com sucesso!');
     } catch (error) {
       console.error('Erro ao excluir meta:', error);
@@ -480,6 +494,12 @@ const GerenciarMetas: React.FC = () => {
     try {
       if (editandoId) {
         // Atualizando meta existente
+        const metaAnterior = metas.find(m => m.id === editandoId);
+        const ambienteAnterior = ambientes.find(a => a.id === metaAnterior?.ambiente_id);
+        const segmentoAnterior = metaAnterior?.segmento_id ? segmentos.find(s => s.id === metaAnterior.segmento_id) : null;
+        const ambienteNovo = ambientes.find(a => a.id === formData.ambiente_id);
+        const segmentoNovo = formData.segmento_id ? segmentos.find(s => s.id === formData.segmento_id) : null;
+        
         const { error } = await supabase
           .from('metas')
           .update(formData)
@@ -505,9 +525,21 @@ const GerenciarMetas: React.FC = () => {
           m.id === editandoId ? metaAtualizada : m
         ));
         
+        // Registrar log de auditoria
+        if (currentUser && metaAnterior) {
+          await supabase.from('logs_acesso').insert({
+            usuario_id: currentUser.id,
+            acao: 'editar_meta',
+            detalhes: `Meta editada: ID ${editandoId}, Ambiente: "${ambienteAnterior?.nome}" → "${ambienteNovo?.nome}", Segmento: "${segmentoAnterior?.nome || 'Geral'}" → "${segmentoNovo?.nome || 'Geral'}", MTTR: ${metaAnterior.mttr_meta}h → ${formData.mttr_meta}h, MTBF: ${metaAnterior.mtbf_meta}h → ${formData.mtbf_meta}h, Disponibilidade: ${metaAnterior.disponibilidade_meta}% → ${formData.disponibilidade_meta}%, Peso: ${metaAnterior.peso_percentual}% → ${formData.peso_percentual}%`
+          });
+        }
+        
         toast.success('Meta atualizada com sucesso');
       } else {
         // Criando nova meta
+        const ambienteNovo = ambientes.find(a => a.id === formData.ambiente_id);
+        const segmentoNovo = formData.segmento_id ? segmentos.find(s => s.id === formData.segmento_id) : null;
+        
         const { data, error } = await supabase
           .from('metas')
           .insert(formData)
@@ -523,6 +555,15 @@ const GerenciarMetas: React.FC = () => {
         // Atualizar lista
         if (data) {
           setMetas(prev => [...prev, data]);
+          
+          // Registrar log de auditoria
+          if (currentUser) {
+            await supabase.from('logs_acesso').insert({
+              usuario_id: currentUser.id,
+              acao: 'criar_meta',
+              detalhes: `Meta criada: ID ${data.id}, Ambiente: "${ambienteNovo?.nome}", Segmento: "${segmentoNovo?.nome || 'Geral'}", MTTR: ${data.mttr_meta}h, MTBF: ${data.mtbf_meta}h, Disponibilidade: ${data.disponibilidade_meta}%, Peso: ${data.peso_percentual}%`
+            });
+          }
           
           // Atualizar lista de ambientes sem meta
           setAmbientesSemMeta(prev => prev.filter(a => a.id !== formData.ambiente_id));

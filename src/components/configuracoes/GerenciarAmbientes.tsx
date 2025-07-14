@@ -3,8 +3,10 @@ import { toast } from 'react-toastify';
 import { Edit, Trash, Plus, Save, X, Server } from 'lucide-react';
 import supabase from '../../lib/supabase';
 import { Ambiente } from '../../pages/Configuracoes';
+import { useAuth } from '../../contexts/AuthContext';
 
 const GerenciarAmbientes: React.FC = () => {
+  const { currentUser } = useAuth();
   const [ambientes, setAmbientes] = useState<Ambiente[]>([]);
   const [loading, setLoading] = useState(true);
   const [editandoId, setEditandoId] = useState<number | null>(null);
@@ -80,6 +82,8 @@ const GerenciarAmbientes: React.FC = () => {
     if (modalExcluir === null) return;
     
     try {
+      const ambienteParaExcluir = ambientes.find(a => a.id === modalExcluir);
+      
       // Verificar se há segmentos relacionados
       const { data: segmentosRelacionados, error: segmentosError } = await supabase
         .from('segmentos')
@@ -136,6 +140,16 @@ const GerenciarAmbientes: React.FC = () => {
       
       // Atualizar lista
       setAmbientes(prev => prev.filter(a => a.id !== modalExcluir));
+      
+      // Registrar log de auditoria
+      if (currentUser && ambienteParaExcluir) {
+        await supabase.from('logs_acesso').insert({
+          usuario_id: currentUser.id,
+          acao: 'excluir_ambiente',
+          detalhes: `Ambiente excluído: ID ${modalExcluir}, Nome: "${ambienteParaExcluir.nome}"`
+        });
+      }
+      
       toast.success('Ambiente excluído com sucesso');
     } catch (error) {
       console.error('Erro ao excluir ambiente:', error);
@@ -156,6 +170,8 @@ const GerenciarAmbientes: React.FC = () => {
     try {
       if (editandoId) {
         // Atualizando ambiente existente
+        const ambienteAnterior = ambientes.find(a => a.id === editandoId);
+        
         const { error } = await supabase
           .from('ambientes')
           .update(formData)
@@ -167,6 +183,15 @@ const GerenciarAmbientes: React.FC = () => {
         setAmbientes(prev => prev.map(a => 
           a.id === editandoId ? { ...a, ...formData as Ambiente } : a
         ));
+        
+        // Registrar log de auditoria
+        if (currentUser) {
+          await supabase.from('logs_acesso').insert({
+            usuario_id: currentUser.id,
+            acao: 'editar_ambiente',
+            detalhes: `Ambiente editado: ID ${editandoId}, Nome: "${ambienteAnterior?.nome}" → "${formData.nome}", Descrição: "${ambienteAnterior?.descricao || ''}" → "${formData.descricao || ''}"`
+          });
+        }
         
         toast.success('Ambiente atualizado com sucesso');
       } else {
@@ -182,6 +207,15 @@ const GerenciarAmbientes: React.FC = () => {
         // Atualizar lista
         if (data) {
           setAmbientes(prev => [...prev, data]);
+          
+          // Registrar log de auditoria
+          if (currentUser) {
+            await supabase.from('logs_acesso').insert({
+              usuario_id: currentUser.id,
+              acao: 'criar_ambiente',
+              detalhes: `Ambiente criado: ID ${data.id}, Nome: "${data.nome}", Descrição: "${data.descricao || ''}"`
+            });
+          }
         }
         
         toast.success('Ambiente criado com sucesso');

@@ -3,8 +3,10 @@ import { toast } from 'react-toastify';
 import { Edit, Trash, Plus, Save, X, ServerCrash } from 'lucide-react';
 import supabase from '../../lib/supabase';
 import { Segmento, Ambiente } from '../../pages/Configuracoes';
+import { useAuth } from '../../contexts/AuthContext';
 
 const GerenciarSegmentos: React.FC = () => {
+  const { currentUser } = useAuth();
   const [segmentos, setSegmentos] = useState<Segmento[]>([]);
   const [ambientes, setAmbientes] = useState<Ambiente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +109,8 @@ const GerenciarSegmentos: React.FC = () => {
     if (modalExcluir === null) return;
     
     try {
+      const segmentoParaExcluir = segmentos.find(s => s.id === modalExcluir);
+      
       // Verificar se há incidentes relacionados
       const { data: incidentesRelacionados, error: incidentesError } = await supabase
         .from('incidentes')
@@ -131,6 +135,16 @@ const GerenciarSegmentos: React.FC = () => {
       
       // Atualizar lista
       setSegmentos(prev => prev.filter(s => s.id !== modalExcluir));
+      
+      // Registrar log de auditoria
+      if (currentUser && segmentoParaExcluir) {
+        await supabase.from('logs_acesso').insert({
+          usuario_id: currentUser.id,
+          acao: 'excluir_segmento',
+          detalhes: `Segmento excluído: ID ${modalExcluir}, Nome: "${segmentoParaExcluir.nome}", Ambiente: "${segmentoParaExcluir.ambiente?.nome}"`
+        });
+      }
+      
       toast.success('Segmento excluído com sucesso');
     } catch (error) {
       console.error('Erro ao excluir segmento:', error);
@@ -151,6 +165,10 @@ const GerenciarSegmentos: React.FC = () => {
     try {
       if (editandoId) {
         // Atualizando segmento existente
+        const segmentoAnterior = segmentos.find(s => s.id === editandoId);
+        const ambienteAnterior = ambientes.find(a => a.id === segmentoAnterior?.ambiente_id);
+        const ambienteNovo = ambientes.find(a => a.id === formData.ambiente_id);
+        
         const { error } = await supabase
           .from('segmentos')
           .update(formData)
@@ -175,9 +193,20 @@ const GerenciarSegmentos: React.FC = () => {
           s.id === editandoId ? segmentoAtualizado : s
         ));
         
+        // Registrar log de auditoria
+        if (currentUser && segmentoAnterior) {
+          await supabase.from('logs_acesso').insert({
+            usuario_id: currentUser.id,
+            acao: 'editar_segmento',
+            detalhes: `Segmento editado: ID ${editandoId}, Nome: "${segmentoAnterior.nome}" → "${formData.nome}", Ambiente: "${ambienteAnterior?.nome}" → "${ambienteNovo?.nome}", Descrição: "${segmentoAnterior.descricao || ''}" → "${formData.descricao || ''}"`
+          });
+        }
+        
         toast.success('Segmento atualizado com sucesso');
       } else {
         // Criando novo segmento
+        const ambienteNovo = ambientes.find(a => a.id === formData.ambiente_id);
+        
         const { data, error } = await supabase
           .from('segmentos')
           .insert(formData)
@@ -192,6 +221,15 @@ const GerenciarSegmentos: React.FC = () => {
         // Atualizar lista
         if (data) {
           setSegmentos(prev => [...prev, data]);
+          
+          // Registrar log de auditoria
+          if (currentUser) {
+            await supabase.from('logs_acesso').insert({
+              usuario_id: currentUser.id,
+              acao: 'criar_segmento',
+              detalhes: `Segmento criado: ID ${data.id}, Nome: "${data.nome}", Ambiente: "${ambienteNovo?.nome}", Descrição: "${data.descricao || ''}"`
+            });
+          }
         }
         
         toast.success('Segmento criado com sucesso');
