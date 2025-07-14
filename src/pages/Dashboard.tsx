@@ -111,11 +111,6 @@ const Dashboard: React.FC = () => {
         
         if (ambientesData) {
           setAmbientes(ambientesData);
-          // Se não houver ambiente selecionado, seleciona o primeiro
-          // Comentado para iniciar com todos os ambientes (null)
-          // if (!filtroAmbiente && ambientesData.length > 0) {
-          //   setFiltroAmbiente(ambientesData[0].id);
-          // }
         }
         
         // Carregar metas
@@ -127,7 +122,6 @@ const Dashboard: React.FC = () => {
           setMetas(metasData);
         }
         
-        // Atualizar estatísticas e incidentes (feito em outro useEffect que depende dos filtros)
       } catch (error) {
         console.error('Erro ao carregar dados iniciais:', error);
       } finally {
@@ -171,8 +165,8 @@ const Dashboard: React.FC = () => {
           const incidentesCriticos = incidentesData.filter(inc => inc.criticidade.is_downtime).length;
           
           // Calcular MTTR, MTBF e disponibilidade usando nossas funções
-          const mttrResult = calcularMTTR(incidentesData, true); // Manter filtro por downtime
-          const mtbfResult = calcularMTBF(incidentesData, periodoAnual.inicio, periodoAnual.fim, true); // Manter filtro por downtime
+          const mttrResult = calcularMTTR(incidentesData, true);
+          const mtbfResult = calcularMTBF(incidentesData, periodoAnual.inicio, periodoAnual.fim, true);
           const dispResult = calcularDisponibilidade(incidentesData, periodoAnual.inicio, periodoAnual.fim);
           
           // Calcular máximo de dias sem incidentes
@@ -373,15 +367,16 @@ const Dashboard: React.FC = () => {
       ) : (
         /* Visualização de Cards */
         <>
-      
-      {/* Mapa de Calor */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">
-          Mapa de Calor - Visão Geral por Ambiente/Segmento
-        </h2>
-        
-        <EnvironmentOverviewHeatmap />
-      </div>
+          {/* Mapa de Calor */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">
+              Mapa de Calor - Visão Geral por Ambiente/Segmento
+            </h2>
+            
+            <EnvironmentOverviewHeatmap />
+          </div>
+        </>
+      )}
     </div>
   );
 };
