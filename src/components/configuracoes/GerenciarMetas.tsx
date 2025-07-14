@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { Edit, Plus, Save, X, Target, PieChart, ChevronDown, ChevronUp } from 'lucide-react';
+import { Edit, Plus, Save, X, Target, PieChart, ChevronDown, ChevronUp, Trash } from 'lucide-react';
 import supabase from '../../lib/supabase';
 import { Meta, Ambiente, Segmento } from '../../pages/Configuracoes';
 import { calcularMTTR, calcularMTBF, calcularDisponibilidade } from '../../utils/metricsCalculations';
@@ -29,6 +29,7 @@ const GerenciarMetas: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [criandoMeta, setCriandoMeta] = useState(false);
+  const [modalExcluir, setModalExcluir] = useState<number | null>(null);
   const [formData, setFormData] = useState<Partial<Meta>>({
     ambiente_id: 0,
     segmento_id: null,
@@ -80,12 +81,10 @@ const GerenciarMetas: React.FC = () => {
   // Percentual disponível para atribuir (considerando edição ou criação)
   const percentualDisponivel = 100 - totalPesoPercentual;
   
-  // Verificar se o total ultrapassa 100%
+  // Verificar se o peso percentual é inválido
   const isPercentualInvalido = isSegmentedGoal
     ? sumPesoPercentualSegmentos + (formData.peso_percentual || 0) > 100
-    : editandoId 
-      ? totalPesoPercentual + (formData.peso_percentual || 0) > 100
-      : criandoMeta && totalPesoPercentual + (formData.peso_percentual || 0) > 100;
+    : (formData.peso_percentual || 0) !== 100; // Meta geral deve ter peso 100%
   
   // Efeito para filtrar segmentos quando o ambiente muda
   useEffect(() => {
@@ -161,7 +160,7 @@ const GerenciarMetas: React.FC = () => {
   // Handler para mudanças nos campos do formulário
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type, checked } = e.target;
-
+    
     if (name === 'ambiente_id') {
       setFormData(prev => ({ 
         ...prev, 
@@ -201,6 +200,7 @@ const GerenciarMetas: React.FC = () => {
   const handleCancelEdit = () => {
     setEditandoId(null);
     setCriandoMeta(false);
+    setModalExcluir(null);
     setFormData({
       ambiente_id: 0,
       segmento_id: null,
@@ -216,16 +216,41 @@ const GerenciarMetas: React.FC = () => {
   // Iniciar criação
   const handleStartCreate = () => {
     setCriandoMeta(true);
+    // Usar o primeiro ambiente disponível ou o primeiro da lista completa
+    const firstAmbienteId = ambientes.length > 0 ? ambientes[0].id : 0;
     setFormData({
-      ambiente_id: ambientesSemMeta.length > 0 ? ambientesSemMeta[0].id : 0,
+      ambiente_id: firstAmbienteId,
       segmento_id: null,
       mttr_meta: 4,
       mtbf_meta: 168,
       disponibilidade_meta: 99.9,
-      peso_percentual: percentualDisponivel,
+      peso_percentual: 100, // Meta geral sempre tem 100%
       mttr_permite_superacao: true,
       mtbf_permite_superacao: true
     });
+  };
+  
+  // Confirmar exclusão
+  const handleConfirmDelete = async () => {
+    if (modalExcluir === null) return;
+    
+    try {
+      const { error } = await supabase
+        .from('metas')
+        .delete()
+        .eq('id', modalExcluir);
+      
+      if (error) throw error;
+      
+      // Atualizar lista
+      setMetas(prev => prev.filter(m => m.id !== modalExcluir));
+      toast.success('Meta excluída com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir meta:', error);
+      toast.error('Erro ao excluir meta');
+    } finally {
+      setModalExcluir(null);
+    }
   };
   
   // Handler para mudança no período de realização
@@ -355,7 +380,7 @@ const GerenciarMetas: React.FC = () => {
   // Salvar (criar ou atualizar)
   const handleSave = async () => {
     // Validar campos
-    if (!formData.ambiente_id || formData.mttr_meta === undefined || 
+    if (!formData.ambiente_id || formData.mttr_meta === undefined ||
         formData.mtbf_meta === undefined || formData.disponibilidade_meta === undefined ||
         formData.peso_percentual === undefined) {
       toast.error('Por favor, preencha todos os campos obrigatórios');
@@ -373,7 +398,21 @@ const GerenciarMetas: React.FC = () => {
       return;
     }
     
-    // Validar valores
+    // Validar peso percentual
+    if (formData.segmento_id === null && formData.peso_percentual !== 100) {
+      toast.error('O peso percentual para uma meta geral deve ser 100%');
+      return;
+    }
+    
+    if (formData.segmento_id !== null) {
+      const totalPesoSegmentos = sumPesoPercentualSegmentos + (formData.peso_percentual || 0);
+      if (totalPesoSegmentos > 100) {
+        toast.error('A soma dos pesos percentuais dos segmentos não pode exceder 100%');
+        return;
+      }
+    }
+    
+    // Validar outros valores
     if (formData.mttr_meta <= 0) {
       toast.error('O MTTR deve ser maior que zero');
       return;
@@ -388,17 +427,7 @@ const GerenciarMetas: React.FC = () => {
       toast.error('A disponibilidade deve estar entre 0 e 100%');
       return;
     }
-    
-    if (formData.peso_percentual < 0 || formData.peso_percentual > 100) {
-      toast.error('O peso percentual deve estar entre 0 e 100%');
-      return;
-    }
-    
-    if (isPercentualInvalido) {
-      toast.error(isSegmentedGoal ? 'A soma dos pesos percentuais dos segmentos não pode exceder 100%' : 'A soma dos pesos percentuais não pode exceder 100%');
-      return;
-    }
-    
+
     try {
       if (editandoId) {
         // Atualizando meta existente
@@ -414,7 +443,8 @@ const GerenciarMetas: React.FC = () => {
           .from('metas')
           .select(`
             *,
-            ambiente:ambientes(nome)
+            ambiente:ambientes(nome),
+            segmento:segmentos(nome)
           `)
           .eq('id', editandoId)
           .single();
@@ -434,7 +464,8 @@ const GerenciarMetas: React.FC = () => {
           .insert(formData)
           .select(`
             *,
-            ambiente:ambientes(nome)
+            ambiente:ambientes(nome),
+            segmento:segmentos(nome)
           `)
           .single();
         
@@ -450,12 +481,16 @@ const GerenciarMetas: React.FC = () => {
         
         toast.success('Meta criada com sucesso');
       }
-      
+
       // Limpar formulário
       handleCancelEdit();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar meta:', error);
-      toast.error('Erro ao salvar meta');
+      if (error.code === '23505') { // Código de erro para violação de unicidade
+        toast.error('Já existe uma meta para este ambiente e segmento.');
+      } else {
+        toast.error('Erro ao salvar meta');
+      }
     }
   };
 
@@ -481,7 +516,7 @@ const GerenciarMetas: React.FC = () => {
           
           <button
             onClick={handleStartCreate}
-            disabled={criandoMeta || editandoId !== null || ambientesSemMeta.length === 0}
+            disabled={criandoMeta || editandoId !== null}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -702,26 +737,31 @@ const GerenciarMetas: React.FC = () => {
       <div className="p-4 bg-blue-50 border-b border-blue-100">
         <div className="flex flex-col md:flex-row md:items-center justify-between">
           <div>
-            <h3 className="text-sm font-medium text-blue-800">Distribuição de Pesos</h3>
+            <h3 className="text-sm font-medium text-blue-800">Distribuição de Pesos por Segmento</h3>
             <p className="text-xs text-blue-600 mt-1">
-              A soma dos pesos percentuais de todas as metas deve ser 100%
+              Para metas gerais: o peso deve ser 100%<br />
+              Para metas por segmento: a soma dos pesos de todos os segmentos de um ambiente deve ser 100%
             </p>
           </div>
           <div className="mt-2 md:mt-0">
-            <div className="flex items-center space-x-2">
-              <div className="text-sm font-medium text-blue-800">
-                Alocado: {totalPesoPercentual.toFixed(1)}%
+            {formData.ambiente_id > 0 && formData.segmento_id !== null && (
+              <div className="flex items-center space-x-2">
+                <div className="text-sm font-medium text-blue-800">
+                  Alocado para segmentos: {sumPesoPercentualSegmentos.toFixed(1)}%
+                </div>
+                <div className="text-sm font-medium text-green-700">
+                  Disponível: {percentualDisponivelSegmentos.toFixed(1)}%
+                </div>
               </div>
-              <div className="text-sm font-medium text-green-700">
-                Disponível: {(100 - totalPesoPercentual).toFixed(1)}%
+            )}
+            {formData.ambiente_id > 0 && formData.segmento_id !== null && (
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                <div 
+                  className={`h-2 rounded-full ${sumPesoPercentualSegmentos > 100 ? 'bg-red-500' : 'bg-blue-500'}`}
+                  style={{ width: `${Math.min(100, sumPesoPercentualSegmentos)}%` }}
+                ></div>
               </div>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-              <div 
-                className={`h-2 rounded-full ${totalPesoPercentual > 100 ? 'bg-red-500' : 'bg-blue-500'}`}
-                style={{ width: `${Math.min(100, totalPesoPercentual)}%` }}
-              ></div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -775,7 +815,7 @@ const GerenciarMetas: React.FC = () => {
                     className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                   >
                     <option value="">Selecione um ambiente</option>
-                    {ambientesSemMeta.map(ambiente => (
+                    {ambientes.map(ambiente => (
                       <option key={ambiente.id} value={ambiente.id}>
                         {ambiente.nome}
                       </option>
@@ -891,13 +931,13 @@ const GerenciarMetas: React.FC = () => {
             {/* Lista de metas */}
             {loading ? (
               <tr>
-                <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={10} className="px-6 py-4 text-center text-sm text-gray-500">
                   Carregando metas...
                 </td>
               </tr>
             ) : metas.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={10} className="px-6 py-4 text-center text-sm text-gray-500">
                   Nenhuma meta encontrada
                 </td>
               </tr>
@@ -924,9 +964,6 @@ const GerenciarMetas: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {meta.segmento?.nome || 'Geral do Ambiente'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
@@ -1069,12 +1106,20 @@ const GerenciarMetas: React.FC = () => {
                       {meta.disponibilidade_meta.toFixed(3)}%
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleEdit(meta)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <Edit className="h-5 w-5" />
-                      </button>
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={() => handleEdit(meta)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => setModalExcluir(meta.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash className="h-5 w-5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -1083,6 +1128,32 @@ const GerenciarMetas: React.FC = () => {
           </tbody>
         </table>
       </div>
+      
+      {/* Modal de confirmação de exclusão */}
+      {modalExcluir !== null && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Confirmar Exclusão</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Tem certeza que deseja excluir esta meta? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setModalExcluir(null)}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
