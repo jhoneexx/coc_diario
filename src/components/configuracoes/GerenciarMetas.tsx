@@ -6,6 +6,13 @@ import { Meta, Ambiente, Segmento } from '../../pages/Configuracoes';
 import { calcularMTTR, calcularMTBF, calcularDisponibilidade } from '../../utils/metricsCalculations';
 import { useAuth } from '../../contexts/AuthContext';
 
+// Adicionar interface para Segmento
+interface Segmento {
+  id: number;
+  nome: string;
+  ambiente_id: number;
+}
+
 interface MetaRealizacaoData {
   ambiente_id: number;
   ambiente_nome: string;
@@ -25,6 +32,7 @@ const GerenciarMetas: React.FC = () => {
   const { currentUser } = useAuth();
   const [metas, setMetas] = useState<Meta[]>([]);
   const [ambientes, setAmbientes] = useState<Ambiente[]>([]);
+  const [segmentos, setSegmentos] = useState<Segmento[]>([]);
   const [allSegments, setAllSegments] = useState<Segmento[]>([]);
   const [filteredSegments, setFilteredSegments] = useState<Segmento[]>([]);
   const [ambientesSemMeta, setAmbientesSemMeta] = useState<Ambiente[]>([]);
@@ -179,6 +187,18 @@ const GerenciarMetas: React.FC = () => {
         
         if (ambientesData) {
           setAmbientes(ambientesData);
+        }
+        
+        // Carregar segmentos
+        const { data: segmentosData, error: segmentosError } = await supabase
+          .from('segmentos')
+          .select('*')
+          .order('nome');
+        
+        if (segmentosError) throw segmentosError;
+        
+        if (segmentosData) {
+          setSegmentos(segmentosData);
         }
         
         // Carregar todos os segmentos
