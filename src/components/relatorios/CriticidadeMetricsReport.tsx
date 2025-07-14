@@ -520,3 +520,5 @@ const CriticidadeMetricsReport: React.FC<CriticidadeMetricsReportProps> = ({
     </div>
   );
 };
+
+export default CriticidadeMetricsReport;
