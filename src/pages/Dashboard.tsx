@@ -365,17 +365,56 @@ const Dashboard: React.FC = () => {
           showFilters={false}
         />
       ) : (
-        /* Visualização de Cards */
-        <>
+        /* Visualização de Métricas */
+        <div className="space-y-6">
+          {/* Filtro de Ambiente */}
+          <div className="bg-white rounded-lg shadow p-4 lg:p-6 mb-6">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+              <div className="flex-1">
+                <label htmlFor="ambiente" className="block text-sm font-medium text-gray-700 mb-2">
+                  Ambiente
+                </label>
+                <select
+                  id="ambiente"
+                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  value={filtroAmbiente || ''}
+                  onChange={(e) => setFiltroAmbiente(e.target.value ? parseInt(e.target.value, 10) : null)}
+                >
+                  <option value="">Todos os ambientes</option>
+                  {ambientes.map(ambiente => (
+                    <option key={ambiente.id} value={ambiente.id}>
+                      {ambiente.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1 lg:flex-initial">
+                <div className="text-sm text-gray-600 mt-6">
+                  Período: {new Date(periodoAnual.inicio).toLocaleDateString('pt-BR')} até {new Date(periodoAnual.fim).toLocaleDateString('pt-BR')}
+                </div>
+              </div>
+            </div>
+          </div>
+          
           {/* Mapa de Calor */}
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="text-lg font-medium text-gray-900 mb-4">
-              Mapa de Calor - Visão Geral por Ambiente/Segmento
+              {!filtroAmbiente 
+                ? 'Mapa de Calor - Visão Geral por Ambiente/Segmento' 
+                : `Mapa de Calor Anual - ${getAmbienteNome()}`
+              }
             </h2>
             
-            <EnvironmentOverviewHeatmap />
+            {!filtroAmbiente ? (
+              <EnvironmentOverviewHeatmap />
+            ) : (
+              <YearHeatMapCalendar 
+                incidentes={incidentes}
+                ano={new Date().getFullYear()}
+              />
+            )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
