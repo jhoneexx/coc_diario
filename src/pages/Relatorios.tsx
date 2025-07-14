@@ -669,10 +669,16 @@ const Relatorios: React.FC = () => {
                             Meta MTTR
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Ating. MTTR (%)
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             MTBF (dias)
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Meta MTBF
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Ating. MTBF (%)
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Disponibilidade
@@ -680,13 +686,16 @@ const Relatorios: React.FC = () => {
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Meta Disp.
                           </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Ating. Disp. (%)
+                          </th>
                         </tr>
                       </thead>
                       
                       <tbody className="bg-white divide-y divide-gray-200">
                         {metricas.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
+                            <td colSpan={12} className="px-6 py-4 text-center text-sm text-gray-500">
                               Sem dados para exibir
                             </td>
                           </tr>
@@ -713,6 +722,13 @@ const Relatorios: React.FC = () => {
                                 {metrica.meta_mttr ? metrica.meta_mttr.toFixed(2) : '-'}
                               </td>
                               <td className={`px-6 py-4 whitespace-nowrap text-sm ${
+                                metrica.mttr_percentual >= 95 ? 'text-green-600 font-medium' :
+                                metrica.mttr_percentual >= 80 ? 'text-blue-600 font-medium' :
+                                'text-red-600 font-medium'
+                              }`}>
+                                {metrica.mttr_percentual.toFixed(1)}%
+                              </td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${
                                 metrica.meta_mtbf && (metrica.mtbf / 24) >= (metrica.meta_mtbf / 24)
                                   
                                   ? 'text-green-600 font-medium'
@@ -724,6 +740,13 @@ const Relatorios: React.FC = () => {
                                 {metrica.meta_mtbf ? (metrica.meta_mtbf / 24).toFixed(2) : '-'}
                               </td>
                               <td className={`px-6 py-4 whitespace-nowrap text-sm ${
+                                metrica.mtbf_percentual >= 95 ? 'text-green-600 font-medium' :
+                                metrica.mtbf_percentual >= 80 ? 'text-blue-600 font-medium' :
+                                'text-red-600 font-medium'
+                              }`}>
+                                {metrica.mtbf_percentual.toFixed(1)}%
+                              </td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${
                                 metrica.meta_disponibilidade && metrica.disponibilidade >= metrica.meta_disponibilidade
                                   ? 'text-green-600 font-medium'
                                   : 'text-red-600 font-medium'
@@ -732,6 +755,13 @@ const Relatorios: React.FC = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {metrica.meta_disponibilidade ? `${metrica.meta_disponibilidade.toFixed(3)}%` : '-'}
+                              </td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${
+                                metrica.disponibilidade_percentual >= 95 ? 'text-green-600 font-medium' :
+                                metrica.disponibilidade_percentual >= 80 ? 'text-blue-600 font-medium' :
+                                'text-red-600 font-medium'
+                              }`}>
+                                {metrica.disponibilidade_percentual.toFixed(1)}%
                               </td>
                             </tr>
                           ))
