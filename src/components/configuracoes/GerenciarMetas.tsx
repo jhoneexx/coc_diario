@@ -202,15 +202,15 @@ const GerenciarMetas: React.FC = () => {
         }
         
         // Carregar todos os segmentos
-        const { data: segmentosData, error: segmentosError } = await supabase
+        const { data: allSegmentosData, error: segmentosError } = await supabase
           .from('segmentos')
           .select('*')
           .order('nome');
         
         if (segmentosError) throw segmentosError;
         
-        if (segmentosData) {
-          setAllSegments(segmentosData);
+        if (allSegmentosData) {
+          setSegmentos(allSegmentosData);
         }
         
         // Carregar metas com join em ambientes
