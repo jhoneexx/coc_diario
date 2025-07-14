@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { FileText, Download, BarChart2, PieChart, Clock1, Layers, ListFilter, Award, BarChart3, Filter, AlertTriangle } from 'lucide-react';
+import Chart from 'react-apexcharts';
 import { ApexOptions } from 'apexcharts';
 import supabase from '../lib/supabase';
 import FilterBar from '../components/common/FilterBar';
