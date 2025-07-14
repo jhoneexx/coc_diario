@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Edit, Plus, Save, X, Target, PieChart, ChevronDown, ChevronUp } from 'lucide-react';
 import supabase from '../../lib/supabase';
-import { Meta, Ambiente } from '../../pages/Configuracoes';
+import { Meta, Ambiente, Segmento } from '../../pages/Configuracoes';
 import { calcularMTTR, calcularMTBF, calcularDisponibilidade } from '../../utils/metricsCalculations';
 
 interface MetaRealizacaoData {
@@ -23,12 +23,15 @@ interface MetaRealizacaoData {
 const GerenciarMetas: React.FC = () => {
   const [metas, setMetas] = useState<Meta[]>([]);
   const [ambientes, setAmbientes] = useState<Ambiente[]>([]);
+  const [allSegments, setAllSegments] = useState<Segmento[]>([]);
+  const [filteredSegments, setFilteredSegments] = useState<Segmento[]>([]);
   const [ambientesSemMeta, setAmbientesSemMeta] = useState<Ambiente[]>([]);
   const [loading, setLoading] = useState(true);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [criandoMeta, setCriandoMeta] = useState(false);
   const [formData, setFormData] = useState<Partial<Meta>>({
     ambiente_id: 0,
+    segmento_id: null,
     mttr_meta: 4,
     mtbf_meta: 168, // 7 dias em horas
     disponibilidade_meta: 99.9,
@@ -54,13 +57,44 @@ const GerenciarMetas: React.FC = () => {
     .filter(m => editandoId !== m.id && !criandoMeta)
     .reduce((total, meta) => total + meta.peso_percentual, 0);
   
+  // Verificar se estamos trabalhando com metas por segmento
+  const isSegmentedGoal = formData.segmento_id !== null;
+  
+  // Filtrar metas do mesmo ambiente
+  const metasDoAmbiente = metas.filter(m => m.ambiente_id === formData.ambiente_id);
+  
+  // Verificar se o ambiente já tem metas por segmento
+  const ambienteTemMetaSegmento = metasDoAmbiente.some(m => m.segmento_id !== null);
+  
+  // Verificar se o ambiente já tem meta geral
+  const ambienteTemMetaGeral = metasDoAmbiente.some(m => m.segmento_id === null);
+  
+  // Calcular a soma dos pesos percentuais das metas por segmento do ambiente atual
+  const sumPesoPercentualSegmentos = metasDoAmbiente
+    .filter(m => m.segmento_id !== null && m.id !== editandoId)
+    .reduce((sum, m) => sum + m.peso_percentual, 0);
+  
+  // Calcular o percentual disponível para metas por segmento
+  const percentualDisponivelSegmentos = 100 - sumPesoPercentualSegmentos;
+  
   // Percentual disponível para atribuir (considerando edição ou criação)
   const percentualDisponivel = 100 - totalPesoPercentual;
   
   // Verificar se o total ultrapassa 100%
-  const isPercentualInvalido = editandoId 
-    ? totalPesoPercentual + (formData.peso_percentual || 0) > 100
-    : criandoMeta && totalPesoPercentual + (formData.peso_percentual || 0) > 100;
+  const isPercentualInvalido = isSegmentedGoal
+    ? sumPesoPercentualSegmentos + (formData.peso_percentual || 0) > 100
+    : editandoId 
+      ? totalPesoPercentual + (formData.peso_percentual || 0) > 100
+      : criandoMeta && totalPesoPercentual + (formData.peso_percentual || 0) > 100;
+  
+  // Efeito para filtrar segmentos quando o ambiente muda
+  useEffect(() => {
+    if (formData.ambiente_id && allSegments.length > 0) {
+      setFilteredSegments(allSegments.filter(s => s.ambiente_id === formData.ambiente_id));
+    } else {
+      setFilteredSegments([]);
+    }
+  }, [formData.ambiente_id, allSegments]);
   
   // Carregar metas e ambientes
   useEffect(() => {
@@ -79,12 +113,25 @@ const GerenciarMetas: React.FC = () => {
           setAmbientes(ambientesData);
         }
         
+        // Carregar todos os segmentos
+        const { data: segmentosData, error: segmentosError } = await supabase
+          .from('segmentos')
+          .select('*')
+          .order('nome');
+        
+        if (segmentosError) throw segmentosError;
+        
+        if (segmentosData) {
+          setAllSegments(segmentosData);
+        }
+        
         // Carregar metas com join em ambientes
         const { data: metasData, error: metasError } = await supabase
           .from('metas')
           .select(`
             *,
-            ambiente:ambientes(nome)
+            ambiente:ambientes(nome),
+            segmento:segmentos(nome)
           `)
           .order('id');
         
@@ -114,9 +161,18 @@ const GerenciarMetas: React.FC = () => {
   // Handler para mudanças nos campos do formulário
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type, checked } = e.target;
-    
+
     if (name === 'ambiente_id') {
-      setFormData(prev => ({ ...prev, [name]: parseInt(value, 10) || 0 }));
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: parseInt(value, 10) || 0,
+        segmento_id: null // Resetar segmento_id ao mudar o ambiente
+      }));
+    } else if (name === 'segmento_id') {
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: value === "" ? null : parseInt(value, 10) 
+      }));
     } else if (['mttr_meta', 'mtbf_meta', 'disponibilidade_meta', 'peso_percentual'].includes(name)) {
       setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
     } else if (type === 'checkbox') {
@@ -131,6 +187,7 @@ const GerenciarMetas: React.FC = () => {
     setEditandoId(meta.id);
     setFormData({
       ambiente_id: meta.ambiente_id,
+      segmento_id: meta.segmento_id || null,
       mttr_meta: meta.mttr_meta,
       mtbf_meta: meta.mtbf_meta,
       disponibilidade_meta: meta.disponibilidade_meta,
@@ -146,6 +203,7 @@ const GerenciarMetas: React.FC = () => {
     setCriandoMeta(false);
     setFormData({
       ambiente_id: 0,
+      segmento_id: null,
       mttr_meta: 4,
       mtbf_meta: 168,
       disponibilidade_meta: 99.9,
@@ -160,6 +218,7 @@ const GerenciarMetas: React.FC = () => {
     setCriandoMeta(true);
     setFormData({
       ambiente_id: ambientesSemMeta.length > 0 ? ambientesSemMeta[0].id : 0,
+      segmento_id: null,
       mttr_meta: 4,
       mtbf_meta: 168,
       disponibilidade_meta: 99.9,
@@ -303,6 +362,17 @@ const GerenciarMetas: React.FC = () => {
       return;
     }
     
+    // Validar conflito entre meta geral e meta por segmento
+    if (formData.segmento_id === null && ambienteTemMetaSegmento) {
+      toast.error('Este ambiente já possui metas por segmento. Não é possível adicionar uma meta geral.');
+      return;
+    }
+    
+    if (formData.segmento_id !== null && ambienteTemMetaGeral) {
+      toast.error('Este ambiente já possui uma meta geral. Não é possível adicionar metas por segmento.');
+      return;
+    }
+    
     // Validar valores
     if (formData.mttr_meta <= 0) {
       toast.error('O MTTR deve ser maior que zero');
@@ -325,7 +395,7 @@ const GerenciarMetas: React.FC = () => {
     }
     
     if (isPercentualInvalido) {
-      toast.error('A soma dos pesos percentuais não pode exceder 100%');
+      toast.error(isSegmentedGoal ? 'A soma dos pesos percentuais dos segmentos não pode exceder 100%' : 'A soma dos pesos percentuais não pode exceder 100%');
       return;
     }
     
@@ -665,6 +735,9 @@ const GerenciarMetas: React.FC = () => {
                 Ambiente
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Segmento
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Peso (%)
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -705,6 +778,22 @@ const GerenciarMetas: React.FC = () => {
                     {ambientesSemMeta.map(ambiente => (
                       <option key={ambiente.id} value={ambiente.id}>
                         {ambiente.nome}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <select
+                    name="segmento_id"
+                    value={formData.segmento_id === null ? "" : formData.segmento_id}
+                    onChange={handleChange}
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    disabled={!formData.ambiente_id}
+                  >
+                    <option value="">Meta Geral do Ambiente</option>
+                    {filteredSegments.map(segmento => (
+                      <option key={segmento.id} value={segmento.id}>
+                        {segmento.nome}
                       </option>
                     ))}
                   </select>
@@ -821,6 +910,25 @@ const GerenciarMetas: React.FC = () => {
                       {meta.ambiente?.nome || ''}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
+                      <select
+                        name="segmento_id"
+                        value={formData.segmento_id === null ? "" : formData.segmento_id}
+                        onChange={handleChange}
+                        className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                        disabled={!formData.ambiente_id}
+                      >
+                        <option value="">Meta Geral do Ambiente</option>
+                        {filteredSegments.map(segmento => (
+                          <option key={segmento.id} value={segmento.id}>
+                            {segmento.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {meta.segmento?.nome || 'Geral do Ambiente'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <input
                         type="number"
                         name="peso_percentual"
@@ -918,8 +1026,14 @@ const GerenciarMetas: React.FC = () => {
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">{meta.ambiente?.nome || ''}</div>
+                          <div className="text-xs text-gray-500">
+                            {meta.segmento?.nome ? `Segmento: ${meta.segmento.nome}` : 'Meta Geral'}
+                          </div>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {meta.segmento?.nome || 'Geral do Ambiente'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                       {meta.peso_percentual.toFixed(1)}%
