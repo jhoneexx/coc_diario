@@ -379,6 +379,7 @@ const Dashboard: React.FC = () => {
         /* Visualização de Atingimento de Metas */
         <CriticidadeMetricsReport 
           filtroAmbiente={filtroAmbiente}
+          filtroSegmento={filtroSegmento}
           periodo={periodoAnual}
           showFilters={false}
         />

@@ -54,6 +54,7 @@ interface CriticidadeMetrics {
 
 interface CriticidadeMetricsReportProps {
   filtroAmbiente?: number | null;
+  filtroSegmento?: number | null;
   periodo?: {
     inicio: string;
     fim: string;
@@ -63,6 +64,7 @@ interface CriticidadeMetricsReportProps {
 
 const CriticidadeMetricsReport: React.FC<CriticidadeMetricsReportProps> = ({ 
   filtroAmbiente: propsFiltroAmbiente,
+  filtroSegmento: propsFiltroSegmento,
   periodo: propsPeriodo,
   showFilters = true
 }) => {
@@ -74,6 +76,7 @@ const CriticidadeMetricsReport: React.FC<CriticidadeMetricsReportProps> = ({
   
   // Filtros internos - usados apenas se não forem fornecidos via props
   const [localFiltroAmbiente, setLocalFiltroAmbiente] = useState<number | null>(null);
+  const [localFiltroSegmento, setLocalFiltroSegmento] = useState<number | null>(null);
   const [localFiltroPeriodo, setLocalFiltroPeriodo] = useState<{inicio: string, fim: string}>(() => {
     const hoje = new Date();
     const inicioAno = new Date(hoje.getFullYear(), 0, 1);
@@ -85,6 +88,7 @@ const CriticidadeMetricsReport: React.FC<CriticidadeMetricsReportProps> = ({
   
   // Usar filtros das props se fornecidos, caso contrário, usar filtros locais
   const filtroAmbiente = propsFiltroAmbiente !== undefined ? propsFiltroAmbiente : localFiltroAmbiente;
+  const filtroSegmento = propsFiltroSegmento !== undefined ? propsFiltroSegmento : localFiltroSegmento;
   const filtroPeriodo = propsPeriodo || localFiltroPeriodo;
 
   // Carregar dados iniciais
@@ -144,6 +148,11 @@ const CriticidadeMetricsReport: React.FC<CriticidadeMetricsReportProps> = ({
           query = query.eq('ambiente_id', filtroAmbiente);
         }
         
+        // Adicionar filtro de segmento se especificado
+        if (filtroSegmento) {
+          query = query.eq('segmento_id', filtroSegmento);
+        }
+        
         const { data, error } = await query.order('inicio', { ascending: false });
         
         if (error) throw error;
@@ -160,7 +169,7 @@ const CriticidadeMetricsReport: React.FC<CriticidadeMetricsReportProps> = ({
     };
     
     fetchIncidentes();
-  }, [filtroAmbiente, filtroPeriodo]);
+  }, [filtroAmbiente, filtroSegmento, filtroPeriodo]);
   
   // Calcular métricas por criticidade
   useEffect(() => {
