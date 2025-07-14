@@ -89,6 +89,15 @@ const GerenciarUsuarios: React.FC = () => {
     if (modalExcluir === null) return;
     
     try {
+      // Primeiro, excluir todos os logs de acesso do usuário
+      const { error: logsError } = await supabase
+        .from('logs_acesso')
+        .delete()
+        .eq('usuario_id', modalExcluir);
+      
+      if (logsError) throw logsError;
+      
+      // Depois, excluir o usuário
       const { error } = await supabase
         .from('usuarios')
         .delete()
