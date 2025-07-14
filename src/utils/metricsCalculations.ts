@@ -12,15 +12,21 @@ interface Incidente {
 /**
  * Calcula o MTTR (Mean Time To Repair) em horas
  * @param incidentes Lista de incidentes
+ * @param filterByDowntime Se true, considera apenas incidentes de downtime (padrão: true)
  * @returns Valor do MTTR em horas
  */
-export function calcularMTTR(incidentes: Incidente[]): number {
+export function calcularMTTR(incidentes: Incidente[], filterByDowntime: boolean = true): number {
   // Filtramos apenas incidentes resolvidos que são downtime
-  const incidentesResolvidos = incidentes.filter(inc => 
-    inc.fim !== null && 
-    inc.duracao_minutos !== null && 
-    inc.criticidade.is_downtime
-  );
+  const incidentesResolvidos = incidentes.filter(inc => {
+    const isResolved = inc.fim !== null && inc.duracao_minutos !== null;
+    if (!isResolved) return false;
+    
+    if (filterByDowntime) {
+      return inc.criticidade.is_downtime;
+    }
+    
+    return true;
+  });
   
   if (incidentesResolvidos.length === 0) {
     return 0;
@@ -36,13 +42,19 @@ export function calcularMTTR(incidentes: Incidente[]): number {
  * @param incidentes Lista de incidentes
  * @param dataInicio Data de início do período
  * @param dataFim Data de fim do período
+ * @param filterByDowntime Se true, considera apenas incidentes de downtime (padrão: true)
  * @returns Valor do MTBF em horas
  */
-export function calcularMTBF(incidentes: Incidente[], dataInicio: string, dataFim: string): number {
+export function calcularMTBF(incidentes: Incidente[], dataInicio: string, dataFim: string, filterByDowntime: boolean = true): number {
   // Filtramos apenas incidentes que são downtime
-  const incidentesDowntime = incidentes.filter(inc => inc.criticidade.is_downtime);
+  const incidentesFiltrados = incidentes.filter(inc => {
+    if (filterByDowntime) {
+      return inc.criticidade.is_downtime;
+    }
+    return true;
+  });
   
-  if (incidentesDowntime.length === 0) {
+  if (incidentesFiltrados.length === 0) {
     // Se não houver falhas, o MTBF é todo o período
     const inicio = new Date(dataInicio);
     const fim = new Date(dataFim + 'T23:59:59');
@@ -51,7 +63,7 @@ export function calcularMTBF(incidentes: Incidente[], dataInicio: string, dataFi
   }
   
   // Calcular tempo total de downtime em minutos
-  const totalDowntime = incidentesDowntime.reduce((sum, inc) => {
+  const totalDowntime = incidentesFiltrados.reduce((sum, inc) => {
     if (inc.duracao_minutos !== null) {
       return sum + inc.duracao_minutos;
     }
@@ -76,7 +88,7 @@ export function calcularMTBF(incidentes: Incidente[], dataInicio: string, dataFi
   const uptimeHoras = periodoHoras - downtimeHoras;
   
   // MTBF = Tempo de operação / Número de falhas
-  return uptimeHoras / incidentesDowntime.length;
+  return uptimeHoras / incidentesFiltrados.length;
 }
 
 /**
