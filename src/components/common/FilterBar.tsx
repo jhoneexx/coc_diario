@@ -1,5 +1,6 @@
 import React from 'react';
 import { Calendar } from 'lucide-react';
+import { Segmento } from '../../pages/Configuracoes';
 
 interface Ambiente {
   id: number;
@@ -9,25 +10,38 @@ interface Ambiente {
 interface FilterBarProps {
   ambientes: Ambiente[];
   filtroAmbiente: number | null;
+  segmentos?: Segmento[];
+  filtroSegmento?: number | null;
   filtroPeriodo?: {
     inicio: string;
     fim: string;
   };
   setFiltroAmbiente: (id: number | null) => void;
+  setFiltroSegmento?: (id: number | null) => void;
   setFiltroPeriodo?: (periodo: {inicio: string, fim: string}) => void;
 }
 
 const FilterBar: React.FC<FilterBarProps> = ({ 
   ambientes, 
   filtroAmbiente, 
+  segmentos,
+  filtroSegmento,
   filtroPeriodo, 
   setFiltroAmbiente, 
+  setFiltroSegmento,
   setFiltroPeriodo 
 }) => {
   // Handler para mudança de ambiente
   const handleAmbienteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setFiltroAmbiente(value ? parseInt(value, 10) : null);
+  };
+  
+  // Handler para mudança de segmento
+  const handleSegmentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!setFiltroSegmento) return;
+    const value = e.target.value;
+    setFiltroSegmento(value ? parseInt(value, 10) : null);
   };
   
   // Handler para mudança de data
@@ -75,16 +89,16 @@ const FilterBar: React.FC<FilterBarProps> = ({
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm">
-      <div className="flex flex-col space-y-4">
+      <div className="flex flex-col space-y-4 md:space-y-0 md:flex-row md:space-x-4 md:items-end">
         {/* Primeira linha - Ambiente */}
-        <div className="w-full">
+        <div className="w-full md:w-1/3">
           <label htmlFor="ambiente" className="block text-sm font-medium text-gray-700 mb-2">
             Ambiente
           </label>
           <select
             id="ambiente"
             name="ambiente"
-            className="w-full h-12 px-4 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 text-base"
+            className="w-full px-4 py-2 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 text-sm"
             value={filtroAmbiente || ''}
             onChange={handleAmbienteChange}
           >
@@ -97,11 +111,34 @@ const FilterBar: React.FC<FilterBarProps> = ({
           </select>
         </div>
         
+        {/* Segmento (condicional) */}
+        {segmentos && segmentos.length > 1 && setFiltroSegmento && (
+          <div className="w-full md:w-1/3">
+            <label htmlFor="segmento" className="block text-sm font-medium text-gray-700 mb-2">
+              Segmento
+            </label>
+            <select
+              id="segmento"
+              name="segmento"
+              className="w-full px-4 py-2 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 text-sm"
+              value={filtroSegmento || ''}
+              onChange={handleSegmentoChange}
+            >
+              <option value="">Todos os Segmentos</option>
+              {segmentos.map(segmento => (
+                <option key={segmento.id} value={segmento.id}>
+                  {segmento.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        
         {/* Renderiza os filtros de período apenas se setFiltroPeriodo for fornecido */}
         {setFiltroPeriodo && filtroPeriodo && (
           <>
             {/* Segunda linha - Período */}
-            <div className="w-full">
+            <div className="w-full md:w-1/3">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Período
               </label>
@@ -112,7 +149,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     name="inicio"
                     value={filtroPeriodo.inicio}
                     onChange={handleDataChange}
-                    className="w-full h-12 px-4 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 text-base"
+                    className="w-full px-4 py-2 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 text-sm"
                   />
                 </div>
                 <span className="text-gray-500 text-center sm:text-left text-sm">até</span>
@@ -122,7 +159,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     name="fim"
                     value={filtroPeriodo.fim}
                     onChange={handleDataChange}
-                    className="w-full h-12 px-4 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 text-base"
+                    className="w-full px-4 py-2 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 text-sm"
                   />
                 </div>
               </div>

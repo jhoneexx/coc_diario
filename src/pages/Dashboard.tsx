@@ -15,6 +15,7 @@ import ExecutiveSummary from '../components/dashboard/ExecutiveSummary';
 import CriticidadeMetricsReport from '../components/relatorios/CriticidadeMetricsReport';
 import FilterBar from '../components/common/FilterBar';
 import { calcularMTTR, calcularMTBF, calcularDisponibilidade } from '../utils/metricsCalculations';
+import { Segmento } from './Configuracoes';
 
 // Tipos
 interface Ambiente {
@@ -67,6 +68,7 @@ const Dashboard: React.FC = () => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [ambientes, setAmbientes] = useState<Ambiente[]>([]);
+  const [allSegments, setAllSegments] = useState<Segmento[]>([]);
   const [incidentes, setIncidentes] = useState<Incidente[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalIncidentes: 0,
@@ -81,6 +83,7 @@ const Dashboard: React.FC = () => {
   
   // Filtros
   const [filtroAmbiente, setFiltroAmbiente] = useState<number | null>(null);
+  const [filtroSegmento, setFiltroSegmento] = useState<number | null>(null);
   
   // Período fixo: ano atual (01/01 até hoje)
   const periodoAnual = useMemo(() => {
@@ -91,6 +94,12 @@ const Dashboard: React.FC = () => {
       fim: hoje.toISOString().split('T')[0]
     };
   }, []);
+  
+  // Filtrar segmentos do ambiente selecionado
+  const segmentosDoAmbienteSelecionado = useMemo(() => {
+    if (!filtroAmbiente) return [];
+    return allSegments.filter(s => s.ambiente_id === filtroAmbiente);
+  }, [filtroAmbiente, allSegments]);
   
   // Estado para controlar qual mapa de calor exibir
   const [mapaTipo, setMapaTipo] = useState<'mensal' | 'anual'>('mensal');
@@ -111,6 +120,18 @@ const Dashboard: React.FC = () => {
         
         if (ambientesData) {
           setAmbientes(ambientesData);
+        }
+        
+        // Carregar segmentos
+        const { data: segmentosData, error: segmentosError } = await supabase
+          .from('segmentos')
+          .select('*')
+          .order('nome');
+        
+        if (segmentosError) throw segmentosError;
+        
+        if (segmentosData) {
+          setAllSegments(segmentosData);
         }
         
         // Carregar metas
@@ -151,6 +172,11 @@ const Dashboard: React.FC = () => {
         
         if (filtroAmbiente) {
           query = query.eq('ambiente_id', filtroAmbiente);
+        }
+        
+        // Adicionar filtro de segmento se especificado
+        if (filtroSegmento) {
+          query = query.eq('segmento_id', filtroSegmento);
         }
         
         const { data: incidentesData, error } = await query.order('inicio', { ascending: false });
@@ -202,7 +228,7 @@ const Dashboard: React.FC = () => {
     };
     
     fetchDataFiltrada();
-  }, [filtroAmbiente, periodoAnual]);
+  }, [filtroAmbiente, filtroSegmento, periodoAnual]);
 
   // Função para encontrar meta do ambiente selecionado
   const getMetaAmbiente = (): Meta | undefined => {
@@ -212,6 +238,12 @@ const Dashboard: React.FC = () => {
   // Handler para criar novo incidente
   const handleNovoIncidente = () => {
     navigate('/incidentes/novo');
+  };
+
+  // Handler para mudança de ambiente
+  const handleAmbienteChange = (id: number | null) => {
+    setFiltroAmbiente(id);
+    setFiltroSegmento(null); // Resetar filtro de segmento ao mudar de ambiente
   };
 
   // Toggle para alternar entre mapa mensal e anual
@@ -322,30 +354,16 @@ const Dashboard: React.FC = () => {
       
       {/* Filtros */}
       <div className="bg-white rounded-lg shadow p-4 lg:p-6 mb-6">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-          <div className="flex-1">
-            <label htmlFor="ambiente" className="block text-sm font-medium text-gray-700 mb-2">
-              Ambiente
-            </label>
-            <select
-              id="ambiente"
-              className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-              value={filtroAmbiente || ''}
-              onChange={(e) => setFiltroAmbiente(e.target.value ? parseInt(e.target.value, 10) : null)}
-            >
-              <option value="">Todos os ambientes</option>
-              {ambientes.map(ambiente => (
-                <option key={ambiente.id} value={ambiente.id}>
-                  {ambiente.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex-1 lg:flex-initial">
-            <div className="text-sm text-gray-600 mt-6">
-              Período: {new Date(periodoAnual.inicio).toLocaleDateString('pt-BR')} até {new Date(periodoAnual.fim).toLocaleDateString('pt-BR')}
-            </div>
-          </div>
+        <FilterBar 
+          ambientes={ambientes}
+          filtroAmbiente={filtroAmbiente}
+          setFiltroAmbiente={handleAmbienteChange}
+          segmentos={segmentosDoAmbienteSelecionado.length > 1 ? segmentosDoAmbienteSelecionado : undefined}
+          filtroSegmento={filtroSegmento}
+          setFiltroSegmento={setFiltroSegmento}
+        />
+        <div className="text-sm text-gray-600 mt-4">
+          Período: {new Date(periodoAnual.inicio).toLocaleDateString('pt-BR')} até {new Date(periodoAnual.fim).toLocaleDateString('pt-BR')}
         </div>
       </div>
       
