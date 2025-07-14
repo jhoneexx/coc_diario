@@ -52,16 +52,29 @@ interface CriticidadeMetrics {
   tempo_total_impacto_horas: number;
 }
 
-const CriticidadeMetricsReport: React.FC = () => {
+interface CriticidadeMetricsReportProps {
+  filtroAmbiente?: number | null;
+  periodo?: {
+    inicio: string;
+    fim: string;
+  };
+  showFilters?: boolean;
+}
+
+const CriticidadeMetricsReport: React.FC<CriticidadeMetricsReportProps> = ({ 
+  filtroAmbiente: propsFiltroAmbiente,
+  periodo: propsPeriodo,
+  showFilters = true
+}) => {
   const [loading, setLoading] = useState(true);
   const [ambientes, setAmbientes] = useState<Ambiente[]>([]);
   const [criticidades, setCriticidades] = useState<Criticidade[]>([]);
   const [incidentes, setIncidentes] = useState<Incidente[]>([]);
   const [metricas, setMetricas] = useState<CriticidadeMetrics[]>([]);
   
-  // Filtros - padrão: este ano
-  const [filtroAmbiente, setFiltroAmbiente] = useState<number | null>(null);
-  const [filtroPeriodo, setFiltroPeriodo] = useState<{inicio: string, fim: string}>(() => {
+  // Filtros internos - usados apenas se não forem fornecidos via props
+  const [localFiltroAmbiente, setLocalFiltroAmbiente] = useState<number | null>(null);
+  const [localFiltroPeriodo, setLocalFiltroPeriodo] = useState<{inicio: string, fim: string}>(() => {
     const hoje = new Date();
     const inicioAno = new Date(hoje.getFullYear(), 0, 1);
     return {
@@ -69,6 +82,10 @@ const CriticidadeMetricsReport: React.FC = () => {
       fim: hoje.toISOString().split('T')[0]
     };
   });
+  
+  // Usar filtros das props se fornecidos, caso contrário, usar filtros locais
+  const filtroAmbiente = propsFiltroAmbiente !== undefined ? propsFiltroAmbiente : localFiltroAmbiente;
+  const filtroPeriodo = propsPeriodo || localFiltroPeriodo;
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -276,22 +293,26 @@ const CriticidadeMetricsReport: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Métricas por Criticidade</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Análise de MTTR e MTBF segmentada por nível de criticidade dos incidentes
-          </p>
-        </div>
+        {showFilters && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">Métricas por Criticidade</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Análise de MTTR e MTBF segmentada por nível de criticidade dos incidentes
+            </p>
+          </div>
+        )}
       </div>
       
       {/* Filtros */}
-      <FilterBar 
-        ambientes={ambientes}
-        filtroAmbiente={filtroAmbiente}
-        filtroPeriodo={filtroPeriodo}
-        setFiltroAmbiente={setFiltroAmbiente}
-        setFiltroPeriodo={setFiltroPeriodo}
-      />
+      {showFilters && (
+        <FilterBar 
+          ambientes={ambientes}
+          filtroAmbiente={localFiltroAmbiente}
+          filtroPeriodo={localFiltroPeriodo}
+          setFiltroAmbiente={setLocalFiltroAmbiente}
+          setFiltroPeriodo={setLocalFiltroPeriodo}
+        />
+      )}
       
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -345,7 +366,7 @@ const CriticidadeMetricsReport: React.FC = () => {
       </div>
       
       {/* Gráficos */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">MTTR por Criticidade</h3>
           {mttrChartData.series[0].data.length > 0 ? (
@@ -394,7 +415,7 @@ const CriticidadeMetricsReport: React.FC = () => {
       </div>
       
       {/* Tabela Detalhada */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-lg shadow overflow-hidden mt-6">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">Detalhamento por Criticidade</h3>
         </div>
@@ -499,5 +520,3 @@ const CriticidadeMetricsReport: React.FC = () => {
     </div>
   );
 };
-
-export default CriticidadeMetricsReport;

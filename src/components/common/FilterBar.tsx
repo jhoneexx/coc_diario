@@ -9,12 +9,12 @@ interface Ambiente {
 interface FilterBarProps {
   ambientes: Ambiente[];
   filtroAmbiente: number | null;
-  filtroPeriodo: {
+  filtroPeriodo?: {
     inicio: string;
     fim: string;
   };
   setFiltroAmbiente: (id: number | null) => void;
-  setFiltroPeriodo: (periodo: {inicio: string, fim: string}) => void;
+  setFiltroPeriodo?: (periodo: {inicio: string, fim: string}) => void;
 }
 
 const FilterBar: React.FC<FilterBarProps> = ({ 
@@ -33,7 +33,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
   // Handler para mudança de data
   const handleDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFiltroPeriodo({
+    setFiltroPeriodo && setFiltroPeriodo({
       ...filtroPeriodo,
       [name]: value
     });
@@ -67,7 +67,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
         break;
     }
     
-    setFiltroPeriodo({
+    setFiltroPeriodo && setFiltroPeriodo({
       inicio: inicio.toISOString().split('T')[0],
       fim
     });
@@ -97,77 +97,82 @@ const FilterBar: React.FC<FilterBarProps> = ({
           </select>
         </div>
         
-        {/* Segunda linha - Período */}
-        <div className="w-full">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Período
-          </label>
-          <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
-            <div className="flex-1">
-              <input
-                type="date"
-                name="inicio"
-                value={filtroPeriodo.inicio}
-                onChange={handleDataChange}
-                className="w-full h-12 px-4 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 text-base"
-              />
+        {/* Renderiza os filtros de período apenas se setFiltroPeriodo for fornecido */}
+        {setFiltroPeriodo && filtroPeriodo && (
+          <>
+            {/* Segunda linha - Período */}
+            <div className="w-full">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Período
+              </label>
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
+                <div className="flex-1">
+                  <input
+                    type="date"
+                    name="inicio"
+                    value={filtroPeriodo.inicio}
+                    onChange={handleDataChange}
+                    className="w-full h-12 px-4 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 text-base"
+                  />
+                </div>
+                <span className="text-gray-500 text-center sm:text-left text-sm">até</span>
+                <div className="flex-1">
+                  <input
+                    type="date"
+                    name="fim"
+                    value={filtroPeriodo.fim}
+                    onChange={handleDataChange}
+                    className="w-full h-12 px-4 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 text-base"
+                  />
+                </div>
+              </div>
             </div>
-            <span className="text-gray-500 text-center sm:text-left text-sm">até</span>
-            <div className="flex-1">
-              <input
-                type="date"
-                name="fim"
-                value={filtroPeriodo.fim}
-                onChange={handleDataChange}
-                className="w-full h-12 px-4 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 text-base"
-              />
+            
+            {/* Terceira linha - Atalhos de Período */}
+            <div className="w-full">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Atalhos de Período
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPeriodoPreset('hoje')}
+                  className="inline-flex items-center justify-center px-3 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 active:bg-gray-100 transition-colors"
+                >
+                  Hoje
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPeriodoPreset('7dias')}
+                  className="inline-flex items-center justify-center px-3 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 active:bg-gray-100 transition-colors"
+                >
+                  7 dias
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPeriodoPreset('30dias')}
+                  className="inline-flex items-center justify-center px-3 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 active:bg-gray-100 transition-colors"
+                >
+                  30 dias
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPeriodoPreset('mes')}
+                  className="inline-flex items-center justify-center px-3 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 active:bg-gray-100 transition-colors"
+                >
+                  Mês atual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPeriodoPreset('ano')}
+                  className="inline-flex items-center justify-center px-3 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 active:bg-gray-100 transition-colors col-span-2 sm:col-span-1"
+                >
+                  Ano atual
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-        
-        {/* Terceira linha - Atalhos de Período */}
-        <div className="w-full">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Atalhos de Período
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-            <button
-              type="button"
-              onClick={() => setPeriodoPreset('hoje')}
-              className="inline-flex items-center justify-center px-3 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 active:bg-gray-100 transition-colors"
-            >
-              Hoje
-            </button>
-            <button
-              type="button"
-              onClick={() => setPeriodoPreset('7dias')}
-              className="inline-flex items-center justify-center px-3 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 active:bg-gray-100 transition-colors"
-            >
-              7 dias
-            </button>
-            <button
-              type="button"
-              onClick={() => setPeriodoPreset('30dias')}
-              className="inline-flex items-center justify-center px-3 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 active:bg-gray-100 transition-colors"
-            >
-              30 dias
-            </button>
-            <button
-              type="button"
-              onClick={() => setPeriodoPreset('mes')}
-              className="inline-flex items-center justify-center px-3 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 active:bg-gray-100 transition-colors"
-            >
-              Mês atual
-            </button>
-            <button
-              type="button"
-              onClick={() => setPeriodoPreset('ano')}
-              className="inline-flex items-center justify-center px-3 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 active:bg-gray-100 transition-colors col-span-2 sm:col-span-1"
-            >
-              Ano atual
-            </button>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
