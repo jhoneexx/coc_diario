@@ -300,7 +300,7 @@ const Dashboard: React.FC = () => {
               }`}
             >
               <Award className="inline-block h-4 w-4 mr-1 lg:mr-2" />
-              <span className="hidden sm:inline">Metas</span>
+              <span className="hidden sm:inline">Analitcs</span>
             </button>
             <button
               onClick={() => setActiveView('resumo')}
