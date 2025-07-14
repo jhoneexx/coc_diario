@@ -202,12 +202,12 @@ const GerenciarMetas: React.FC = () => {
         }
         
         // Carregar todos os segmentos
-        const { data: allSegmentosData, error: segmentosError } = await supabase
+        const { data: allSegmentosData, error: allSegmentosError } = await supabase
           .from('segmentos')
           .select('*')
           .order('nome');
         
-        if (segmentosError) throw segmentosError;
+        if (allSegmentosError) throw allSegmentosError;
         
         if (allSegmentosData) {
           setSegmentos(allSegmentosData);
