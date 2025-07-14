@@ -128,6 +128,10 @@ const Relatorios: React.FC = () => {
   // Efeito para carregar dados filtrados
   useEffect(() => {
     const fetchDataFiltrada = async () => {
+      // Verificar se as datas são válidas
+      const inicio = filtroPeriodo.inicio || new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+      const fim = filtroPeriodo.fim || new Date().toISOString().split('T')[0];
+      
       setLoading(true);
       try {
         // Construir query base para incidentes
@@ -140,8 +144,8 @@ const Relatorios: React.FC = () => {
             segmento:segmentos(nome),
             criticidade:criticidades(nome, cor, is_downtime)
           `)
-          .gte('inicio', filtroPeriodo.inicio)
-          .lte('inicio', `${filtroPeriodo.fim}T23:59:59`);
+          .gte('inicio', inicio)
+          .lte('inicio', `${fim}T23:59:59`);
         
         // Adicionar filtro de ambiente se especificado
         if (filtroAmbiente) {
@@ -250,7 +254,7 @@ const Relatorios: React.FC = () => {
     };
     
     fetchDataFiltrada();
-  }, [filtroAmbiente, filtroPeriodo, metas, ambientes]);
+  }, [filtroAmbiente, filtroPeriodo.inicio, filtroPeriodo.fim]);
   
   // Calcular atingimento geral das metas (ponderado pelo peso percentual)
   const calcularAtingimentoGeral = (tipoMetrica: 'mttr' | 'mtbf' | 'disponibilidade') => {
