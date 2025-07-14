@@ -90,15 +90,26 @@ const MetaAtingimentoCard: React.FC<MetaAtingimentoCardProps> = ({
         <div>
           <div className="flex items-center">
             <h3 className="text-sm font-medium text-gray-500">{titulo}</h3>
-            {pesoPercentual !== undefined && (
-              <span className="ml-2 px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700">
-                {pesoPercentual}%
+            {pesoPercentual !== undefined && pesoPercentual > 0 && (
+              <span className="ml-2 px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 whitespace-nowrap">
+                Peso na meta global: {pesoPercentual}%
               </span>
             )}
           </div>
           <div className="mt-1 flex items-baseline">
-            <p className="text-2xl font-semibold text-gray-900">{valor.toFixed(2)}</p>
-            <p className="ml-1 text-sm text-gray-500">{unidade}</p>
+            <p className="text-2xl font-semibold text-gray-900">
+              {valor.toFixed(unidade === '%' ? 3 : 2)}{unidade}
+              {meta !== undefined && (
+                <>
+                  <span className="ml-1 text-sm text-gray-500">
+                    / {meta.toFixed(unidade === '%' ? 3 : 2)}{unidade}
+                  </span>
+                  <span className="ml-2 text-base font-medium text-gray-700 whitespace-nowrap">
+                    ({percentualAtingimento > 999 ? '999+' : percentualAtingimento.toFixed(1)}%)
+                  </span>
+                </>
+              )}
+            </p>
           </div>
         </div>
         <div className="p-2 rounded-full bg-gray-50">
@@ -108,14 +119,7 @@ const MetaAtingimentoCard: React.FC<MetaAtingimentoCardProps> = ({
       
       {meta !== undefined && (
         <>
-          <div className="mt-4 flex justify-between items-center">
-            <span className="text-xs text-gray-500">Meta: {meta.toFixed(2)} {unidade}</span>
-            <span className="text-xs text-gray-500">
-              Atingimento: {percentualAtingimento > 999 ? '999+' : percentualAtingimento.toFixed(0)}%
-            </span>
-          </div>
-          
-          <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
+          <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
             <div 
               className={`h-2 rounded-full ${
                 percentualAtingimento >= 95 ? 'bg-green-500' :
