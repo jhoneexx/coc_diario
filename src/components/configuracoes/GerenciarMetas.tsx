@@ -33,10 +33,10 @@ const GerenciarMetas: React.FC = () => {
   const [formData, setFormData] = useState<Partial<Meta>>({
     ambiente_id: 0,
     segmento_id: null,
-    mttr_meta: 4,
-    mtbf_meta: 168, // 7 dias em horas
+    mttr_meta: 4.0,
+    mtbf_meta: 168.0, // 7 dias em horas
     disponibilidade_meta: 99.9,
-    peso_percentual: 100,
+    peso_percentual: 10.0,
     mttr_permite_superacao: true,
     mtbf_permite_superacao: true
   });
@@ -58,38 +58,17 @@ const GerenciarMetas: React.FC = () => {
     .filter(m => editandoId !== m.id && !criandoMeta)
     .reduce((total, meta) => total + meta.peso_percentual, 0);
   
-  // Verificar se estamos trabalhando com metas por segmento
-  const isSegmentedGoal = formData.segmento_id !== null;
-  
-  // Filtrar metas do mesmo ambiente
-  const metasDoAmbiente = metas.filter(m => m.ambiente_id === formData.ambiente_id);
-  
-  // Verificar se o ambiente já tem metas por segmento
-  const ambienteTemMetaSegmento = metasDoAmbiente.some(m => m.segmento_id !== null);
-  
-  // Verificar se o ambiente já tem meta geral
-  const ambienteTemMetaGeral = metasDoAmbiente.some(m => m.segmento_id === null);
-  
-  // Calcular a soma dos pesos percentuais das metas por segmento do ambiente atual
-  const sumPesoPercentualSegmentos = metasDoAmbiente
-    .filter(m => m.segmento_id !== null && m.id !== editandoId)
-    .reduce((sum, m) => sum + m.peso_percentual, 0);
-  
-  // Calcular o percentual disponível para metas por segmento
-  const percentualDisponivelSegmentos = 100 - sumPesoPercentualSegmentos;
-  
-  // Percentual disponível para atribuir (considerando edição ou criação)
+  // Calcular o percentual disponível para atribuir (considerando edição ou criação)
   const percentualDisponivel = 100 - totalPesoPercentual;
   
-  // Verificar se o peso percentual é inválido
-  const isPercentualInvalido = isSegmentedGoal
-    ? sumPesoPercentualSegmentos + (formData.peso_percentual || 0) > 100
-    : (formData.peso_percentual || 0) !== 100; // Meta geral deve ter peso 100%
+  // Verificar se o peso percentual é inválido (excede 100% no total)
+  const isPercentualInvalido = (formData.peso_percentual || 0) > percentualDisponivel;
   
   // Efeito para filtrar segmentos quando o ambiente muda
   useEffect(() => {
     if (formData.ambiente_id && allSegments.length > 0) {
-      setFilteredSegments(allSegments.filter(s => s.ambiente_id === formData.ambiente_id));
+      const segmentosDoAmbiente = allSegments.filter(s => s.ambiente_id === formData.ambiente_id);
+      setFilteredSegments(segmentosDoAmbiente);
     } else {
       setFilteredSegments([]);
     }
@@ -387,31 +366,13 @@ const GerenciarMetas: React.FC = () => {
       return;
     }
     
-    // Validar conflito entre meta geral e meta por segmento
-    if (formData.segmento_id === null && ambienteTemMetaSegmento) {
-      toast.error('Este ambiente já possui metas por segmento. Não é possível adicionar uma meta geral.');
+    // Validar peso percentual global
+    const pesoTotal = totalPesoPercentual + (editandoId ? 0 : (formData.peso_percentual || 0));
+    if (pesoTotal > 100) {
+      toast.error(`A soma dos pesos percentuais não pode exceder 100%. Atual: ${pesoTotal.toFixed(1)}%`);
       return;
     }
-    
-    if (formData.segmento_id !== null && ambienteTemMetaGeral) {
-      toast.error('Este ambiente já possui uma meta geral. Não é possível adicionar metas por segmento.');
-      return;
-    }
-    
-    // Validar peso percentual
-    if (formData.segmento_id === null && formData.peso_percentual !== 100) {
-      toast.error('O peso percentual para uma meta geral deve ser 100%');
-      return;
-    }
-    
-    if (formData.segmento_id !== null) {
-      const totalPesoSegmentos = sumPesoPercentualSegmentos + (formData.peso_percentual || 0);
-      if (totalPesoSegmentos > 100) {
-        toast.error('A soma dos pesos percentuais dos segmentos não pode exceder 100%');
-        return;
-      }
-    }
-    
+
     // Validar outros valores
     if (formData.mttr_meta <= 0) {
       toast.error('O MTTR deve ser maior que zero');
@@ -500,7 +461,7 @@ const GerenciarMetas: React.FC = () => {
         <div>
           <h2 className="text-lg font-medium text-gray-900">Gerenciar Metas</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Defina metas de MTTR, MTBF e disponibilidade para cada ambiente
+            Defina metas de MTTR, MTBF e disponibilidade para ambientes e segmentos
           </p>
         </div>
         
@@ -737,31 +698,26 @@ const GerenciarMetas: React.FC = () => {
       <div className="p-4 bg-blue-50 border-b border-blue-100">
         <div className="flex flex-col md:flex-row md:items-center justify-between">
           <div>
-            <h3 className="text-sm font-medium text-blue-800">Distribuição de Pesos por Segmento</h3>
+            <h3 className="text-sm font-medium text-blue-800">Distribuição de Pesos Global</h3>
             <p className="text-xs text-blue-600 mt-1">
-              Para metas gerais: o peso deve ser 100%<br />
-              Para metas por segmento: a soma dos pesos de todos os segmentos de um ambiente deve ser 100%
+              A soma dos pesos de todas as metas (ambientes e segmentos) não pode exceder 100%
             </p>
           </div>
           <div className="mt-2 md:mt-0">
-            {formData.ambiente_id > 0 && formData.segmento_id !== null && (
-              <div className="flex items-center space-x-2">
-                <div className="text-sm font-medium text-blue-800">
-                  Alocado para segmentos: {sumPesoPercentualSegmentos.toFixed(1)}%
-                </div>
-                <div className="text-sm font-medium text-green-700">
-                  Disponível: {percentualDisponivelSegmentos.toFixed(1)}%
-                </div>
+            <div className="flex items-center space-x-2">
+              <div className="text-sm font-medium text-blue-800">
+                Peso total alocado: {totalPesoPercentual.toFixed(1)}%
               </div>
-            )}
-            {formData.ambiente_id > 0 && formData.segmento_id !== null && (
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div 
-                  className={`h-2 rounded-full ${sumPesoPercentualSegmentos > 100 ? 'bg-red-500' : 'bg-blue-500'}`}
-                  style={{ width: `${Math.min(100, sumPesoPercentualSegmentos)}%` }}
-                ></div>
+              <div className="text-sm font-medium text-green-700">
+                Disponível: {percentualDisponivel.toFixed(1)}%
               </div>
-            )}
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+              <div 
+                className={`h-2 rounded-full ${totalPesoPercentual > 100 ? 'bg-red-500' : 'bg-blue-500'}`}
+                style={{ width: `${Math.min(100, totalPesoPercentual)}%` }}
+              ></div>
+            </div>
           </div>
         </div>
       </div>
@@ -852,7 +808,7 @@ const GerenciarMetas: React.FC = () => {
                     }`}
                   />
                   {isPercentualInvalido && (
-                    <p className="text-red-500 text-xs mt-1">Excede 100% total</p>
+                    <p className="text-red-500 text-xs mt-1">Excede o percentual disponível ({percentualDisponivel.toFixed(1)}%)</p>
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -979,7 +935,7 @@ const GerenciarMetas: React.FC = () => {
                         }`}
                       />
                       {isPercentualInvalido && (
-                        <p className="text-red-500 text-xs mt-1">Excede 100% total</p>
+                        <p className="text-red-500 text-xs mt-1">Excede o percentual disponível ({percentualDisponivel.toFixed(1)}%)</p>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
