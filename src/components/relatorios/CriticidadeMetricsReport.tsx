@@ -2,11 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import Chart from 'react-apexcharts';
 import { ApexOptions } from 'apexcharts';
-import { AlertTriangle, Clock, Calendar, TrendingUp, BarChart3, Download } from 'lucide-react';
+import { AlertTriangle, Clock, Calendar, TrendingUp, BarChart3 } from 'lucide-react';
 import supabase from '../../lib/supabase';
 import FilterBar from '../common/FilterBar';
 import { calcularMTTR, calcularMTBF } from '../../utils/metricsCalculations';
-import { exportReportToPDF } from '../../utils/exportReports';
 
 // Tipos
 interface Ambiente {
@@ -87,10 +86,6 @@ const CriticidadeMetricsReport: React.FC<CriticidadeMetricsReportProps> = ({
   // Usar filtros das props se fornecidos, caso contrário, usar filtros locais
   const filtroAmbiente = propsFiltroAmbiente !== undefined ? propsFiltroAmbiente : localFiltroAmbiente;
   const filtroPeriodo = propsPeriodo || localFiltroPeriodo;
-
-  // Estado para controlar o progresso da exportação do PDF
-  const [exportProgress, setExportProgress] = useState(0);
-  const [isExporting, setIsExporting] = useState(false);
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -294,50 +289,6 @@ const CriticidadeMetricsReport: React.FC<CriticidadeMetricsReportProps> = ({
       theme: 'light'
     }
   };
-  
-  // Função para exportar para PDF
-  const handleExportPDF = async () => {
-    setIsExporting(true);
-    setExportProgress(0);
-    
-    try {
-      // Preparar dados para o relatório
-      const ambienteFiltrado = filtroAmbiente 
-        ? ambientes.find(a => a.id === filtroAmbiente)?.nome || 'Ambiente Selecionado'
-        : 'Todos os Ambientes';
-      
-      // Preparar métricas para o relatório
-      const metricasParaRelatorio = metricas.map(m => ({
-        ambiente_id: m.criticidade_id,
-        ambiente_nome: m.criticidade_nome,
-        mttr: m.mttr_horas,
-        mtbf: m.mtbf_horas,
-        disponibilidade: 100, // Valor fictício para o relatório
-        incidentes_total: m.total_incidentes,
-        incidentes_criticos: m.incidentes_resolvidos,
-        meta_mttr: null,
-        meta_mtbf: null,
-        meta_disponibilidade: null
-      }));
-      
-      await exportReportToPDF({
-        incidentes,
-        metricas: metricasParaRelatorio,
-        filtroPeriodo,
-        filtroAmbiente,
-        ambienteFiltrado,
-        onProgress: (progress) => setExportProgress(progress)
-      });
-      
-      toast.success('Relatório exportado com sucesso!');
-    } catch (error) {
-      console.error('Erro ao exportar relatório:', error);
-      toast.error('Erro ao exportar relatório');
-    } finally {
-      setIsExporting(false);
-      setExportProgress(0);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -413,20 +364,6 @@ const CriticidadeMetricsReport: React.FC<CriticidadeMetricsReportProps> = ({
           </div>
         </div>
       </div>
-      
-      {/* Botão de exportação */}
-      {!showFilters && (
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={handleExportPDF}
-            disabled={isExporting || loading || metricas.length === 0}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            {isExporting ? `Exportando... ${exportProgress.toFixed(0)}%` : 'Exportar PDF'}
-          </button>
-        </div>
-      )}
       
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

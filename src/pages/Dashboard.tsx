@@ -1,13 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BarChart2, Clock1, Award, Download } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, Calendar, Plus, BarChart2, Clock1, Award, BarChart3 } from 'lucide-react';
 import supabase from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import HeatMapCalendar from '../components/dashboard/HeatMapCalendar';
 import YearHeatMapCalendar from '../components/dashboard/YearHeatMapCalendar';
+import EnvironmentOverviewHeatmap from '../components/dashboard/EnvironmentOverviewHeatmap';
+import MetricCard from '../components/dashboard/MetricCard';
+import MetaAtingimentoCard from '../components/dashboard/MetaAtingimentoCard';
+import IncidentList from '../components/dashboard/IncidentList';
+import IncidentTypeQuantityChart from '../components/dashboard/IncidentTypeQuantityChart';
+import IncidentImpactHoursChart from '../components/dashboard/IncidentImpactHoursChart';
 import ExecutiveSummary from '../components/dashboard/ExecutiveSummary';
 import CriticidadeMetricsReport from '../components/relatorios/CriticidadeMetricsReport';
+import FilterBar from '../components/common/FilterBar';
 import { calcularMTTR, calcularMTBF, calcularDisponibilidade } from '../utils/metricsCalculations';
-import { exportReportToPDF } from '../utils/exportReports';
 
 // Tipos
 interface Ambiente {
@@ -59,6 +66,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [ambientes, setAmbientes] = useState<Ambiente[]>([]);
   const [incidentes, setIncidentes] = useState<Incidente[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalIncidentes: 0,
@@ -72,7 +80,7 @@ const Dashboard: React.FC = () => {
   const [metas, setMetas] = useState<Meta[]>([]);
   
   // Filtros
-  const filtroAmbiente = null; // Sempre null para mostrar todos os ambientes
+  const [filtroAmbiente, setFiltroAmbiente] = useState<number | null>(null);
   
   // Período fixo: ano atual (01/01 até hoje)
   const periodoAnual = useMemo(() => {
@@ -84,18 +92,32 @@ const Dashboard: React.FC = () => {
     };
   }, []);
   
+  // Estado para controlar qual mapa de calor exibir
+  const [mapaTipo, setMapaTipo] = useState<'mensal' | 'anual'>('mensal');
+  
   // Estado para controlar qual visualização está ativa
   const [activeView, setActiveView] = useState<'cards' | 'resumo' | 'metas'>('cards');
-  
-  // Estado para controlar o progresso da exportação do PDF
-  const [exportProgress, setExportProgress] = useState(0);
-  const [isExporting, setIsExporting] = useState(false);
 
   // Carregar dados iniciais
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        // Carregar ambientes
+        const { data: ambientesData } = await supabase
+          .from('ambientes')
+          .select('*')
+          .order('nome');
+        
+        if (ambientesData) {
+          setAmbientes(ambientesData);
+          // Se não houver ambiente selecionado, seleciona o primeiro
+          // Comentado para iniciar com todos os ambientes (null)
+          // if (!filtroAmbiente && ambientesData.length > 0) {
+          //   setFiltroAmbiente(ambientesData[0].id);
+          // }
+        }
+        
         // Carregar metas
         const { data: metasData } = await supabase
           .from('metas')
@@ -198,48 +220,52 @@ const Dashboard: React.FC = () => {
     navigate('/incidentes/novo');
   };
 
+  // Toggle para alternar entre mapa mensal e anual
+  const toggleMapaTipo = () => {
+    setMapaTipo(mapaTipo === 'mensal' ? 'anual' : 'mensal');
+  };
+  
   // Obter nome do ambiente selecionado
   const getAmbienteNome = () => {
     if (!filtroAmbiente) return '';
-    return '';
+    const ambiente = ambientes.find(a => a.id === filtroAmbiente);
+    return ambiente ? ambiente.nome : '';
   };
-  
-  // Função para exportar relatório em PDF
-  const handleExportPDF = async () => {
-    setIsExporting(true);
-    setExportProgress(0);
+
+  // Calcular percentuais de atingimento de metas
+  const calcularPercentualMTTR = () => {
+    const meta = getMetaAmbiente();
+    if (!meta || !meta.mttr_meta || stats.mttr === 0) return 100;
     
-    try {
-      await exportReportToPDF({
-        incidentes,
-        metricas: [
-          {
-            ambiente_id: 0,
-            ambiente_nome: 'Todos os ambientes',
-            mttr: stats.mttr,
-            mtbf: stats.mtbf,
-            disponibilidade: stats.disponibilidadeMedia,
-            incidentes_total: stats.totalIncidentes,
-            incidentes_criticos: stats.incidentesCriticos,
-            meta_mttr: getMetaAmbiente()?.mttr_meta || null,
-            meta_mtbf: getMetaAmbiente()?.mtbf_meta || null,
-            meta_disponibilidade: getMetaAmbiente()?.disponibilidade_meta || null
-          }
-        ],
-        filtroPeriodo: periodoAnual,
-        filtroAmbiente,
-        ambienteFiltrado: 'Todos os ambientes',
-        onProgress: (progress) => setExportProgress(progress)
-      });
-      
-      toast.success('Relatório exportado com sucesso!');
-    } catch (error) {
-      console.error('Erro ao exportar relatório:', error);
-      toast.error('Erro ao exportar relatório');
-    } finally {
-      setIsExporting(false);
-      setExportProgress(0);
+    const percentual = 100 * (meta.mttr_meta / stats.mttr);
+    
+    // Se não permite superação, limitar a 100%
+    if (!meta.mttr_permite_superacao) {
+      return Math.min(100, percentual);
     }
+    
+    return percentual;
+  };
+
+  const calcularPercentualMTBF = () => {
+    const meta = getMetaAmbiente();
+    if (!meta || !meta.mtbf_meta || stats.mtbf === 0) return 0;
+    
+    const percentual = 100 * (stats.mtbf / meta.mtbf_meta);
+    
+    // Se não permite superação, limitar a 100%
+    if (!meta.mtbf_permite_superacao) {
+      return Math.min(100, percentual);
+    }
+    
+    return percentual;
+  };
+
+  const calcularPercentualDisponibilidade = () => {
+    const meta = getMetaAmbiente();
+    if (!meta || !meta.disponibilidade_meta || stats.disponibilidadeMedia === 0) return 0;
+    // Disponibilidade sempre é limitada a 100%
+    return Math.min(100, 100 * (stats.disponibilidadeMedia / meta.disponibilidade_meta));
   };
 
   return (
@@ -274,7 +300,7 @@ const Dashboard: React.FC = () => {
               }`}
             >
               <Award className="inline-block h-4 w-4 mr-1 lg:mr-2" />
-              <span className="hidden sm:inline">Analytics</span>
+              <span className="hidden sm:inline">Analitcs</span>
             </button>
             <button
               onClick={() => setActiveView('resumo')}
@@ -301,17 +327,37 @@ const Dashboard: React.FC = () => {
       </div>
       
       {/* Filtros */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex justify-between items-center">
-          <p className="text-sm text-gray-600">
-            Período: {new Date(periodoAnual.inicio).toLocaleDateString('pt-BR')} até {new Date(periodoAnual.fim).toLocaleDateString('pt-BR')}
-          </p>
+      <div className="bg-white rounded-lg shadow p-4 lg:p-6 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+          <div className="flex-1">
+            <label htmlFor="ambiente" className="block text-sm font-medium text-gray-700 mb-2">
+              Ambiente
+            </label>
+            <select
+              id="ambiente"
+              className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              value={filtroAmbiente || ''}
+              onChange={(e) => setFiltroAmbiente(e.target.value ? parseInt(e.target.value, 10) : null)}
+            >
+              <option value="">Todos os ambientes</option>
+              {ambientes.map(ambiente => (
+                <option key={ambiente.id} value={ambiente.id}>
+                  {ambiente.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1 lg:flex-initial">
+            <div className="text-sm text-gray-600 mt-6">
+              Período: {new Date(periodoAnual.inicio).toLocaleDateString('pt-BR')} até {new Date(periodoAnual.fim).toLocaleDateString('pt-BR')}
+            </div>
+          </div>
         </div>
       </div>
       
       {activeView === 'resumo' ? (
         /* Visualização de Resumo Executivo */
-        <ExecutiveSummary
+        <ExecutiveSummary 
           stats={stats}
           metas={getMetaAmbiente()}
           periodo={periodoAnual}
@@ -319,36 +365,122 @@ const Dashboard: React.FC = () => {
         />
       ) : activeView === 'metas' ? (
         /* Visualização de Atingimento de Metas */
-        <div>
-          <div className="flex justify-end mb-4">
-            <button
-              onClick={handleExportPDF}
-              disabled={isExporting}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              {isExporting ? `Exportando... ${exportProgress.toFixed(0)}%` : 'Exportar PDF'}
-            </button>
-          </div>
-          <CriticidadeMetricsReport 
-            filtroAmbiente={filtroAmbiente}
-            periodo={periodoAnual}
-            showFilters={false}
-          />
-        </div>
+        <CriticidadeMetricsReport 
+          filtroAmbiente={filtroAmbiente}
+          periodo={periodoAnual}
+          showFilters={false}
+        />
       ) : (
         /* Visualização de Cards */
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
-            Mapa de Calor Anual - {new Date().getFullYear()}
-          </h2>
-          
-          <YearHeatMapCalendar 
-            incidentes={incidentes}
-            ano={new Date().getFullYear()}
-          />
+        <>
+          {/* Cards de Métricas - responsivo */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <MetricCard 
+              title="Total de Incidentes"
+              value={stats.totalIncidentes.toString()}
+              icon={<AlertTriangle className="h-6 w-6 text-amber-500" />}
+              description="Período selecionado"
+              color="bg-amber-50"
+            />
+            
+            <MetricCard 
+              title="MTTR (horas)"
+              value={stats.mttr.toFixed(2)}
+              icon={<Clock className="h-6 w-6 text-red-500" />}
+              description={`Meta: ${getMetaAmbiente()?.mttr_meta.toFixed(2) || '-'} horas`}
+              color="bg-red-50"
+              statusColor={getMetaAmbiente() && stats.mttr <= getMetaAmbiente()!.mttr_meta ? 'green' : 'red'}
+            />
+            
+            <MetricCard 
+              title="MTBF (dias)"
+              value={(stats.mtbf / 24).toFixed(2)}
+              icon={<CheckCircle className="h-6 w-6 text-green-500" />}
+              description={`Meta: ${getMetaAmbiente() ? (getMetaAmbiente()!.mtbf_meta / 24).toFixed(2) : '-'} dias`}
+              color="bg-green-50"
+              statusColor={getMetaAmbiente() && stats.mtbf >= getMetaAmbiente()!.mtbf_meta ? 'green' : 'red'}
+            />
+            
+            <MetricCard 
+              title="Disponibilidade"
+              value={`${stats.disponibilidadeMedia.toFixed(3)}%`}
+              icon={<Calendar className="h-6 w-6 text-blue-500" />}
+              description={`Meta: ${getMetaAmbiente()?.disponibilidade_meta.toFixed(3) || '-'}%`}
+              color="bg-blue-50"
+              statusColor={getMetaAmbiente() && stats.disponibilidadeMedia >= getMetaAmbiente()!.disponibilidade_meta ? 'green' : 'red'}
+            />
+          </div>
+        </>
+      )}
+      
+      {/* Toggle para alternar entre mapa mensal e anual */}
+      {filtroAmbiente && (
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={toggleMapaTipo}
+            className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          >
+            {mapaTipo === 'mensal' ? 'Ver Mapa Anual' : 'Ver Mapa Mensal'}
+          </button>
         </div>
       )}
+      
+      {/* Mapa de Calor */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">
+          {!filtroAmbiente 
+            ? 'Mapa de Calor - Visão Geral por Ambiente/Segmento' 
+            : mapaTipo === 'mensal' 
+              ? 'Mapa de Calor Mensal' 
+              : 'Mapa de Calor Anual'
+          }
+        </h2>
+        
+        {!filtroAmbiente ? (
+          <EnvironmentOverviewHeatmap />
+        ) : (
+          mapaTipo === 'mensal' ? (
+            <HeatMapCalendar 
+              incidentes={incidentes} 
+              periodo={periodoAnual}
+            />
+          ) : (
+            <YearHeatMapCalendar 
+              incidentes={incidentes}
+              ano={new Date().getFullYear()}
+            />
+          )
+        )}
+      </div>
+      
+      {/* Gráficos adicionais - responsivo */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow p-4">
+          <IncidentTypeQuantityChart 
+            incidentes={incidentes}
+            titulo="Quantidade por Tipo de Incidente" 
+          />
+        </div>
+        
+        <div className="bg-white rounded-lg shadow p-4">
+          <IncidentImpactHoursChart 
+            incidentes={incidentes}
+            titulo="Horas de Impacto por Tipo de Incidente"
+            apenasDowntime={true}
+          />
+        </div>
+      </div>
+      
+      {/* Lista de Incidentes Recentes */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+          <h2 className="text-lg font-medium text-gray-900">Incidentes Recentes</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Últimos {Math.min(incidentes.length, 5)} incidentes registrados em {new Date().getFullYear()}
+          </p>
+        </div>
+        <IncidentList incidentes={incidentes.slice(0, 5)} />
+      </div>
     </div>
   );
 };
