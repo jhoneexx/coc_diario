@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { Edit, Plus, Save, X, Target, PieChart, ChevronDown, ChevronUp, Trash } from 'lucide-react';
+import { Edit, Plus, Save, X, Target, PieChart, ChevronDown, ChevronUp, Trash, Search, ArrowUpDown } from 'lucide-react';
 import supabase from '../../lib/supabase';
 import { Meta, Ambiente, Segmento } from '../../pages/Configuracoes';
 import { calcularMTTR, calcularMTBF, calcularDisponibilidade } from '../../utils/metricsCalculations';
@@ -40,6 +40,15 @@ const GerenciarMetas: React.FC = () => {
     mttr_permite_superacao: true,
     mtbf_permite_superacao: true
   });
+  
+  // Estado para filtro de ambiente
+  const [filtroAmbiente, setFiltroAmbiente] = useState<number | null>(null);
+  
+  // Estado para ordenação
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: 'asc' | 'desc';
+  } | null>(null);
 
   // Estado para controlar a exibição da visualização de realização de metas
   const [showMetaRealizacao, setShowMetaRealizacao] = useState(false);
@@ -61,8 +70,8 @@ const GerenciarMetas: React.FC = () => {
   // Calcular o percentual disponível para atribuir (considerando edição ou criação)
   const percentualDisponivel = 100 - totalPesoPercentual;
   
-  // Verificar se o peso percentual é inválido (excede 100% no total)
-  const isPercentualInvalido = (formData.peso_percentual || 0) > percentualDisponivel;
+  // Verificar se o peso percentual é inválido (excede 100% no total ou é negativo)
+  const isPercentualInvalido = (formData.peso_percentual || 0) > percentualDisponivel || (formData.peso_percentual || 0) < 0;
   
   // Efeito para filtrar segmentos quando o ambiente muda
   useEffect(() => {
@@ -73,6 +82,85 @@ const GerenciarMetas: React.FC = () => {
       setFilteredSegments([]);
     }
   }, [formData.ambiente_id, allSegments]);
+  
+  // Função para ordenar metas
+  const sortedMetas = React.useMemo(() => {
+    let sortableMetas = [...metas];
+    
+    // Aplicar filtro de ambiente se selecionado
+    if (filtroAmbiente) {
+      sortableMetas = sortableMetas.filter(meta => meta.ambiente_id === filtroAmbiente);
+    }
+    
+    if (sortConfig !== null) {
+      sortableMetas.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (sortConfig.key) {
+          case 'ambiente':
+            aValue = a.ambiente?.nome || '';
+            bValue = b.ambiente?.nome || '';
+            break;
+          case 'segmento':
+            aValue = a.segmento?.nome || '';
+            bValue = b.segmento?.nome || '';
+            break;
+          case 'peso':
+            aValue = a.peso_percentual;
+            bValue = b.peso_percentual;
+            break;
+          case 'mttr':
+            aValue = a.mttr_meta;
+            bValue = b.mttr_meta;
+            break;
+          case 'mtbf':
+            aValue = a.mtbf_meta;
+            bValue = b.mtbf_meta;
+            break;
+          case 'disponibilidade':
+            aValue = a.disponibilidade_meta;
+            bValue = b.disponibilidade_meta;
+            break;
+          default:
+            aValue = a.id;
+            bValue = b.id;
+        }
+        
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    
+    return sortableMetas;
+  }, [metas, sortConfig, filtroAmbiente]);
+  
+  // Função para lidar com a ordenação
+  const handleSort = (key: string) => {
+    setSortConfig(prevConfig => {
+      if (prevConfig && prevConfig.key === key) {
+        return {
+          key,
+          direction: prevConfig.direction === 'asc' ? 'desc' : 'asc'
+        };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+  
+  // Função para renderizar o ícone de ordenação
+  const getSortIcon = (key: string) => {
+    if (sortConfig && sortConfig.key === key) {
+      return sortConfig.direction === 'asc' ? 
+        <ChevronUp className="h-4 w-4 inline-block ml-1" /> : 
+        <ChevronDown className="h-4 w-4 inline-block ml-1" />;
+    }
+    return <ArrowUpDown className="h-4 w-4 inline-block ml-1 opacity-30" />;
+  };
   
   // Carregar metas e ambientes
   useEffect(() => {
@@ -486,6 +574,49 @@ const GerenciarMetas: React.FC = () => {
         </div>
       </div>
       
+      {/* Filtro de ambiente e pesquisa */}
+      <div className="p-4 bg-gray-50 border-b border-gray-200">
+        <div className="flex flex-col md:flex-row md:items-end space-y-4 md:space-y-0 md:space-x-4">
+          <div className="w-full md:w-1/3">
+            <label htmlFor="filtroAmbiente" className="block text-sm font-medium text-gray-700 mb-1">
+              Filtrar por Ambiente
+            </label>
+            <select
+              id="filtroAmbiente"
+              value={filtroAmbiente || ''}
+              onChange={(e) => setFiltroAmbiente(e.target.value ? parseInt(e.target.value, 10) : null)}
+              className="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+            >
+              <option value="">Todos os Ambientes</option>
+              {ambientes.map(ambiente => (
+                <option key={ambiente.id} value={ambiente.id}>
+                  {ambiente.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="flex-1 flex justify-end">
+            <div className="text-sm text-gray-700">
+              <div className="flex items-center space-x-2">
+                <div className="font-medium">
+                  Peso total alocado: {totalPesoPercentual.toFixed(1)}%
+                </div>
+                <div className="text-green-700">
+                  Disponível: {percentualDisponivel.toFixed(1)}%
+                </div>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                <div 
+                  className={`h-2 rounded-full ${totalPesoPercentual > 100 ? 'bg-red-500' : 'bg-blue-500'}`}
+                  style={{ width: `${Math.min(100, totalPesoPercentual)}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       {/* Visão de Realização das Metas */}
       {showMetaRealizacao && (
         <div className="p-6 border-b border-gray-200 bg-gray-50 animate-fadeIn">
@@ -694,56 +825,48 @@ const GerenciarMetas: React.FC = () => {
         </div>
       )}
       
-      {/* Resumo percentual */}
-      <div className="p-4 bg-blue-50 border-b border-blue-100">
-        <div className="flex flex-col md:flex-row md:items-center justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-blue-800">Distribuição de Pesos Global</h3>
-            <p className="text-xs text-blue-600 mt-1">
-              A soma dos pesos de todas as metas (ambientes e segmentos) não pode exceder 100%
-            </p>
-          </div>
-          <div className="mt-2 md:mt-0">
-            <div className="flex items-center space-x-2">
-              <div className="text-sm font-medium text-blue-800">
-                Peso total alocado: {totalPesoPercentual.toFixed(1)}%
-              </div>
-              <div className="text-sm font-medium text-green-700">
-                Disponível: {percentualDisponivel.toFixed(1)}%
-              </div>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-              <div 
-                className={`h-2 rounded-full ${totalPesoPercentual > 100 ? 'bg-red-500' : 'bg-blue-500'}`}
-                style={{ width: `${Math.min(100, totalPesoPercentual)}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
       {/* Lista de Metas */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Ambiente
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('ambiente')}
+              >
+                Ambiente {getSortIcon('ambiente')}
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Segmento
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('segmento')}
+              >
+                Segmento {getSortIcon('segmento')}
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Peso (%)
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('peso')}
+              >
+                Peso (%) {getSortIcon('peso')}
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                MTTR Meta (horas)
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('mttr')}
+              >
+                MTTR Meta (horas) {getSortIcon('mttr')}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Superação MTTR
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                MTBF Meta (horas)
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('mtbf')}
+              >
+                MTBF Meta (horas) {getSortIcon('mtbf')}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Superação MTBF
@@ -751,8 +874,12 @@ const GerenciarMetas: React.FC = () => {
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 MTBF Meta (dias)
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Disponibilidade Meta (%)
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('disponibilidade')}
+              >
+                Disponibilidade Meta (%) {getSortIcon('disponibilidade')}
               </th>
               <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Ações
@@ -898,7 +1025,7 @@ const GerenciarMetas: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              metas.map(meta => (
+              sortedMetas.map(meta => (
                 editandoId === meta.id ? (
                   // Formulário de edição
                   <tr key={meta.id} className="bg-blue-50">
