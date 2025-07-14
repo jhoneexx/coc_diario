@@ -373,113 +373,14 @@ const Dashboard: React.FC = () => {
       ) : (
         /* Visualização de Cards */
         <>
-          {/* Cards de Métricas - responsivo */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard 
-              title="Total de Incidentes"
-              value={stats.totalIncidentes.toString()}
-              icon={<AlertTriangle className="h-6 w-6 text-amber-500" />}
-              description="Período selecionado"
-              color="bg-amber-50"
-            />
-            
-            <MetricCard 
-              title="MTTR (horas)"
-              value={stats.mttr.toFixed(2)}
-              icon={<Clock className="h-6 w-6 text-red-500" />}
-              description={`Meta: ${getMetaAmbiente()?.mttr_meta.toFixed(2) || '-'} horas`}
-              color="bg-red-50"
-              statusColor={getMetaAmbiente() && stats.mttr <= getMetaAmbiente()!.mttr_meta ? 'green' : 'red'}
-            />
-            
-            <MetricCard 
-              title="MTBF (dias)"
-              value={(stats.mtbf / 24).toFixed(2)}
-              icon={<CheckCircle className="h-6 w-6 text-green-500" />}
-              description={`Meta: ${getMetaAmbiente() ? (getMetaAmbiente()!.mtbf_meta / 24).toFixed(2) : '-'} dias`}
-              color="bg-green-50"
-              statusColor={getMetaAmbiente() && stats.mtbf >= getMetaAmbiente()!.mtbf_meta ? 'green' : 'red'}
-            />
-            
-            <MetricCard 
-              title="Disponibilidade"
-              value={`${stats.disponibilidadeMedia.toFixed(3)}%`}
-              icon={<Calendar className="h-6 w-6 text-blue-500" />}
-              description={`Meta: ${getMetaAmbiente()?.disponibilidade_meta.toFixed(3) || '-'}%`}
-              color="bg-blue-50"
-              statusColor={getMetaAmbiente() && stats.disponibilidadeMedia >= getMetaAmbiente()!.disponibilidade_meta ? 'green' : 'red'}
-            />
-          </div>
-        </>
-      )}
-      
-      {/* Toggle para alternar entre mapa mensal e anual */}
-      {filtroAmbiente && (
-        <div className="flex justify-end mb-2">
-          <button
-            onClick={toggleMapaTipo}
-            className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            {mapaTipo === 'mensal' ? 'Ver Mapa Anual' : 'Ver Mapa Mensal'}
-          </button>
-        </div>
-      )}
       
       {/* Mapa de Calor */}
       <div className="bg-white rounded-lg shadow p-4">
         <h2 className="text-lg font-medium text-gray-900 mb-4">
-          {!filtroAmbiente 
-            ? 'Mapa de Calor - Visão Geral por Ambiente/Segmento' 
-            : mapaTipo === 'mensal' 
-              ? 'Mapa de Calor Mensal' 
-              : 'Mapa de Calor Anual'
-          }
+          Mapa de Calor - Visão Geral por Ambiente/Segmento
         </h2>
         
-        {!filtroAmbiente ? (
-          <EnvironmentOverviewHeatmap />
-        ) : (
-          mapaTipo === 'mensal' ? (
-            <HeatMapCalendar 
-              incidentes={incidentes} 
-              periodo={periodoAnual}
-            />
-          ) : (
-            <YearHeatMapCalendar 
-              incidentes={incidentes}
-              ano={new Date().getFullYear()}
-            />
-          )
-        )}
-      </div>
-      
-      {/* Gráficos adicionais - responsivo */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow p-4">
-          <IncidentTypeQuantityChart 
-            incidentes={incidentes}
-            titulo="Quantidade por Tipo de Incidente" 
-          />
-        </div>
-        
-        <div className="bg-white rounded-lg shadow p-4">
-          <IncidentImpactHoursChart 
-            incidentes={incidentes}
-            titulo="Horas de Impacto por Tipo de Incidente"
-            apenasDowntime={true}
-          />
-        </div>
-      </div>
-      
-      {/* Lista de Incidentes Recentes */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Incidentes Recentes</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Últimos {Math.min(incidentes.length, 5)} incidentes registrados em {new Date().getFullYear()}
-          </p>
-        </div>
-        <IncidentList incidentes={incidentes.slice(0, 5)} />
+        <EnvironmentOverviewHeatmap />
       </div>
     </div>
   );
