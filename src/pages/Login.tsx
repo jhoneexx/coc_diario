@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
 
 const Login: React.FC = () => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -16,7 +16,7 @@ const Login: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const success = await login(username, password);
+      const success = await login(email, password);
       if (success) {
         navigate('/dashboard');
       }
@@ -33,20 +33,20 @@ const Login: React.FC = () => {
     <div className="animate-fadeIn">
       <form className="space-y-6" onSubmit={handleSubmit}>
         <div>
-          <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-            Usuário
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            E-mail
           </label>
           <div className="mt-1">
             <input
-              id="username"
-              name="username"
-              type="text"
-              autoComplete="username"
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
               required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-              placeholder="Digite seu nome de usuário"
+              placeholder="Digite seu e-mail"
             />
           </div>
         </div>
@@ -78,6 +78,17 @@ const Login: React.FC = () => {
                 <Eye className="h-5 w-5 text-gray-400" />
               )}
             </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="text-sm">
+            <Link
+              to="/forgot-password"
+              className="font-medium text-primary-600 hover:text-primary-500"
+            >
+              Esqueceu sua senha?
+            </Link>
           </div>
         </div>
 

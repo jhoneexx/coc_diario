@@ -7,14 +7,16 @@ interface User {
   id: number;
   nome: string;
   login: string;
+  email: string;
   perfil: string;
   role: string; // Conveniente para verificação de acesso
+  auth_user_id: string; // ID do usuário no Supabase Auth
 }
 
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   isAdmin: () => boolean;
   isGestor: () => boolean;
@@ -32,87 +34,146 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Função para buscar dados do usuário na tabela public.usuarios
+  const fetchUserProfile = async (authUserId: string): Promise<User | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('auth_user_id', authUserId)
+        .single();
+      
+      if (error || !data) {
+        console.error('Erro ao buscar perfil do usuário:', error);
+        return null;
+      }
+      
+      // Mapear dados para o formato esperado
+      return {
+        id: data.id,
+        nome: data.nome,
+        login: data.login || data.email,
+        email: data.email,
+        perfil: data.perfil,
+        role: data.perfil,
+        auth_user_id: authUserId
+      };
+    } catch (error) {
+      console.error('Erro ao buscar perfil do usuário:', error);
+      return null;
+    }
+  };
+
   // Verifica se o usuário já está logado ao iniciar a aplicação
   useEffect(() => {
-    const checkUser = async () => {
+    const initializeAuth = async () => {
       try {
-        const storedUser = localStorage.getItem('cloudOpsUser');
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          setCurrentUser(parsedUser);
+        // Verificar sessão atual
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Erro ao verificar sessão:', error);
+          setLoading(false);
+          return;
+        }
+        
+        if (session?.user) {
+          // Buscar dados do perfil do usuário
+          const userProfile = await fetchUserProfile(session.user.id);
           
-          // Registra acesso no log
-          if (parsedUser?.id) {
+          if (userProfile) {
+            setCurrentUser(userProfile);
+            
+            // Registrar acesso no log
             await supabase.from('logs_acesso').insert({
-              usuario_id: parsedUser.id,
+              usuario_id: userProfile.id,
               acao: 'sessão_recuperada',
               detalhes: 'Sessão recuperada automaticamente'
             });
             
-            // Atualiza último acesso
+            // Atualizar último acesso
             await supabase
               .from('usuarios')
               .update({ ultimo_acesso: new Date().toISOString() })
-              .eq('id', parsedUser.id);
+              .eq('id', userProfile.id);
+          } else {
+            // Se não encontrou o perfil, fazer logout
+            await supabase.auth.signOut();
           }
         }
       } catch (error) {
-        console.error('Erro ao verificar usuário:', error);
+        console.error('Erro ao inicializar autenticação:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    checkUser();
+    initializeAuth();
+
+    // Escutar mudanças no estado de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          const userProfile = await fetchUserProfile(session.user.id);
+          if (userProfile) {
+            setCurrentUser(userProfile);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setCurrentUser(null);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Função de login
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('login', username)
-        .single();
-      
-      if (error || !data) {
-        toast.error('Usuário não encontrado');
-        return false;
-      }
-      
-      // Verificação simples de senha (em produção, usaria bcrypt)
-      if (data.senha !== password) {
-        toast.error('Senha incorreta');
-        return false;
-      }
-      
-      // Mapeia o perfil para o campo role para facilitar verificações
-      const user: User = {
-        id: data.id,
-        nome: data.nome,
-        login: data.login,
-        perfil: data.perfil,
-        role: data.perfil // Garante o mesmo valor para ambos os campos
-      };
-      
-      // Salva o usuário no localStorage
-      localStorage.setItem('cloudOpsUser', JSON.stringify(user));
-      setCurrentUser(user);
-      
-      // Registra login no log
-      await supabase.from('logs_acesso').insert({
-        usuario_id: data.id,
-        acao: 'login',
-        detalhes: 'Login realizado com sucesso'
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
       });
       
-      // Atualiza último acesso
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          toast.error('E-mail ou senha incorretos');
+        } else {
+          toast.error('Erro ao fazer login: ' + error.message);
+        }
+        return false;
+      }
+      
+      if (!data.user) {
+        toast.error('Erro ao fazer login');
+        return false;
+      }
+      
+      // Buscar dados do perfil do usuário
+      const userProfile = await fetchUserProfile(data.user.id);
+      
+      if (!userProfile) {
+        toast.error('Usuário não encontrado no sistema');
+        await supabase.auth.signOut();
+        return false;
+      }
+      
+      setCurrentUser(userProfile);
+      
+      // Registrar login no log
+      await supabase.from('logs_acesso').insert({
+        usuario_id: userProfile.id,
+        acao: 'login',
+        detalhes: 'Login realizado com sucesso via Supabase Auth'
+      });
+      
+      // Atualizar último acesso
       await supabase
         .from('usuarios')
         .update({ ultimo_acesso: new Date().toISOString() })
-        .eq('id', data.id);
+        .eq('id', userProfile.id);
       
       toast.success('Login realizado com sucesso');
       return true;
@@ -128,7 +189,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Função de logout
   const logout = async (): Promise<void> => {
     try {
-      // Registra logout no log se houver usuário
+      // Registrar logout no log se houver usuário
       if (currentUser?.id) {
         await supabase.from('logs_acesso').insert({
           usuario_id: currentUser.id,
@@ -137,8 +198,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
       }
       
-      // Remove usuário do localStorage
-      localStorage.removeItem('cloudOpsUser');
+      // Fazer logout no Supabase Auth
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Erro ao fazer logout:', error);
+      }
+      
       setCurrentUser(null);
       toast.info('Logout realizado com sucesso');
     } catch (error) {

@@ -8,6 +8,8 @@ import AuthLayout from './layouts/AuthLayout';
 
 // Páginas
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Incidentes from './pages/Incidentes';
 import NovoIncidente from './pages/NovoIncidente';
@@ -60,6 +62,14 @@ function App() {
           <Login />
         </AuthLayout>
       } />
+      
+      <Route path="/forgot-password" element={
+        <AuthLayout>
+          <ForgotPassword />
+        </AuthLayout>
+      } />
+      
+      <Route path="/reset-password" element={<ResetPassword />} />
       
       <Route path="/cliente" element={<ClienteDashboard />} />
       

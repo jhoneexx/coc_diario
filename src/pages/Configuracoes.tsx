@@ -13,6 +13,7 @@ import GerenciarCriticidades from '../components/configuracoes/GerenciarCriticid
 import GerenciarMetas from '../components/configuracoes/GerenciarMetas';
 import LogsAuditoriaTable from '../components/configuracoes/LogsAuditoriaTable';
 import ImportarIncidentes from '../components/configuracoes/ImportarIncidentes';
+import MigrationPanel from '../components/configuracoes/MigrationPanel';
 
 // Tipos
 export interface Usuario {
@@ -133,6 +134,10 @@ const Configuracoes: React.FC = () => {
             <Upload className="h-5 w-5 mr-2" />
             <span>Importação</span>
           </TabsTrigger>
+          <TabsTrigger value="migracao" className="flex items-center">
+            <Settings className="h-5 w-5 mr-2" />
+            <span>Migração Auth</span>
+          </TabsTrigger>
           <TabsTrigger value="logs" className="flex items-center">
             <Settings className="h-5 w-5 mr-2" />
             <span>Logs de Auditoria</span>
@@ -165,6 +170,10 @@ const Configuracoes: React.FC = () => {
         
         <TabsContent value="importacao" className="mt-0">
           <ImportarIncidentes />
+        </TabsContent>
+        
+        <TabsContent value="migracao" className="mt-0">
+          <MigrationPanel />
         </TabsContent>
         
         <TabsContent value="logs" className="mt-0">
