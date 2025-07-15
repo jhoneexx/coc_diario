@@ -29,9 +29,14 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
         </div>
         
         <div className="mt-4 text-center">
-          <Link to="/cliente" className="text-sm text-primary-600 hover:text-primary-800">
-            Acessar Dashboard do Cliente
-          </Link>
+          <a 
+            href="https://status.seniorcloud.com.br/" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="text-sm text-primary-600 hover:text-primary-800"
+          >
+            Acessar Status dos Ambientes Cloud Senior
+          </a>
         </div>
       </div>
       
